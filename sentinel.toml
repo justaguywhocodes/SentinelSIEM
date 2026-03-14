@@ -16,6 +16,7 @@ index_prefix = "sentinel"
 http_addr = "0.0.0.0"
 http_port = 8080
 rate_limit = 10000  # max events per second
+api_keys = ["changeme"]  # API keys for ingestion auth
 
   [ingest.syslog]
   tcp_port = 1514

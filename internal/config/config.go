@@ -39,6 +39,7 @@ type IngestConfig struct {
 	HTTPAddr      string       `toml:"http_addr"`
 	HTTPPort      int          `toml:"http_port"`
 	RateLimit     int          `toml:"rate_limit"`
+	APIKeys       []string     `toml:"api_keys"`
 	Syslog        SyslogConfig `toml:"syslog"`
 }
 
