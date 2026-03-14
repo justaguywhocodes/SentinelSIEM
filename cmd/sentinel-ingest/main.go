@@ -30,6 +30,8 @@ func main() {
 	// Initialize parser registry with all known parsers.
 	registry := normalize.NewRegistry()
 	registry.Register(parsers.NewSentinelEDRParser())
+	registry.Register(parsers.NewWinEvtXMLParser())
+	registry.Register(parsers.NewWinEvtJSONParser())
 	engine := normalize.NewEngine(registry)
 
 	log.Printf("Registered parsers: %v", registry.SourceTypes())
