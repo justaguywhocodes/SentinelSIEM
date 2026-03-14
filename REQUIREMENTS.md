@@ -1,8 +1,8 @@
-# Sentinel SIEM — Requirements Document v2.0
+# Sentinel SIEM — Requirements Document v2.1
 ## A Proof-of-Concept Security Information & Event Management Platform
-**Version 2.0 — Claude Code Implementation Phases | March 2026**
+**Version 2.1 — Claude Code Implementation Phases | March 2026**
 
-Built on Go + Elasticsearch with native Sigma rule support and ECS normalization. Designed to ingest telemetry from SentinelEDR and other security tools. React-based dashboard with built-in case management.
+Built on Go + Elasticsearch with native Sigma rule support and ECS normalization. Designed to ingest telemetry from SentinelEDR and other security tools. React-based dashboard with built-in case management and AI-powered investigation assistant.
 
 ---
 
@@ -16,7 +16,7 @@ The project is the central brain of the Sentinel portfolio. Where SentinelEDR ge
 
 Sentinel SIEM natively consumes Sigma rules — the open-standard YAML-based detection format used by thousands of detection engineers worldwide. This means the platform ships with access to 3000+ community-written detections from the SigmaHQ repository and is interoperable with real-world detection engineering workflows.
 
-The platform includes a built-in case management module for alert escalation and incident response, eliminating external dependencies on third-party tools like TheHive.
+The platform includes a built-in case management module for alert escalation and incident response, eliminating external dependencies on third-party tools like TheHive. An AI investigation assistant powered by the Anthropic API provides natural language query assistance, alert triage summaries, multi-step investigation workflows, detection rule drafting, and cross-portfolio attack narratives.
 
 ## 2. Project Goals & Non-Goals
 
@@ -27,6 +27,7 @@ The platform includes a built-in case management module for alert escalation and
 - Provide a query interface for ad-hoc threat hunting over stored events using a simplified query language that translates to Elasticsearch DSL.
 - Provide built-in case management for alert escalation, observable tracking, analyst collaboration, and incident resolution.
 - Generate a React-based web dashboard for alert triage, event exploration, case management, source onboarding, and system health monitoring.
+- Provide an AI-powered investigation assistant that leverages the SIEM's REST API to assist analysts with natural language queries, alert triage, multi-step investigations, detection rule drafting, and cross-portfolio attack narrative generation.
 - Maintain a clean Go codebase with minimal external dependencies, buildable with standard Go tooling.
 
 ### 2.2 Non-Goals (v1)
@@ -49,7 +50,7 @@ The platform includes a built-in case management module for alert escalation and
 | sentinel-correlate | Go | Real-time Sigma rule engine. Evaluates events against loaded rules. Fires alerts on matches. Maintains state for correlation rules. |
 | sentinel-query | Go | Query API server. Translates simplified query syntax to Elasticsearch DSL. Serves the web dashboard and case management API. |
 | sentinel-cli | Go | Management CLI for rule loading, source management, system health, and ad-hoc queries. |
-| sentinel-dashboard | React | Single-page web dashboard for alert triage, case management, event search, source health, source onboarding, and rule management. Served by sentinel-query. |
+| sentinel-dashboard | React | Single-page web dashboard for alert triage, case management, event search, source health, source onboarding, and rule management. Includes AI investigation assistant panel. Served by sentinel-query. |
 
 ### 3.2 Data Flow
 
@@ -262,14 +263,14 @@ A simplified query syntax that translates to Elasticsearch DSL: field-value matc
 
 ### 6.3 Web Dashboard
 
-React SPA with seven pages: Overview (KPI dashboard), Alerts (triage queue), Cases (incident management), Hunt (query + results), Rules (Sigma management + ATT&CK coverage), Sources (health + onboarding), Settings (preferences + integrations). See Section 10 for full dashboard design specification.
+React SPA with seven pages: Overview (KPI dashboard), Alerts (triage queue), Cases (incident management), Hunt (query + results), Rules (Sigma management + ATT&CK coverage), Sources (health + onboarding), Settings (preferences + integrations). An AI investigation assistant panel is accessible from any page via a persistent header icon. See Section 10 for full dashboard design specification and Section 11 for AI assistant specification.
 
 ## 7. Build & Development Environment
 
 - **Language:** Go 1.22+
 - **Dependencies:** `go-elasticsearch`, `gopkg.in/yaml.v3`, `chi` (HTTP routing), `zap` (logging)
 - **Elasticsearch:** 8.x via Docker
-- **Dashboard:** React with Tailwind CSS, TanStack Table, Recharts, Nivo, CodeMirror 6, Zustand, TanStack Query
+- **Dashboard:** React with Tailwind CSS, TanStack Table, Recharts, Nivo, CodeMirror 6, Zustand, TanStack Query, Anthropic API (for AI assistant)
 
 ## 8. Risks & Mitigations
 
@@ -280,6 +281,7 @@ React SPA with seven pages: Overview (KPI dashboard), Alerts (triage queue), Cas
 | Syslog parsing fragility | Medium | Configurable regex parsers, tested for common formats |
 | ECS mapping gaps | Low | Start with core fields, preserve unmapped in `labels.*` |
 | React dashboard complexity | Medium | Component isolation, TanStack Query for data fetching, Zustand for minimal client state |
+| AI assistant hallucination | Medium | Tool-use architecture constrains agent to real API data; no autonomous actions; analyst reviews all output before action |
 
 ## 9. References
 
@@ -310,7 +312,7 @@ The dashboard uses a collapsible left sidebar (`bg-slate-800`, `indigo-500` acti
 
 The sidebar is 264px wide (`w-64`) on desktop with a collapse toggle to icon-only mode (`w-16`). On mobile, it renders as a full-width overlay with `bg-black/50` backdrop. Active pages are highlighted with `bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500`.
 
-The global header bar is sticky (`sticky top-0 z-30`) with `backdrop-blur` and contains: time range picker (left), global search input (center), notification dropdown (right), and user avatar menu (far right).
+The global header bar is sticky (`sticky top-0 z-30`) with `backdrop-blur` and contains: time range picker (left), global search input (center), AI assistant toggle button (right), notification dropdown (right), and user avatar menu (far right).
 
 ### 10.2 Overview Dashboard
 
@@ -454,13 +456,82 @@ Note: Yellow text on dark backgrounds requires `text-yellow-300` (#fde047) for 4
 | Date Math | `date-fns` v3.x | Time picker, relative timestamps |
 | Calendar | `react-day-picker` v8.x | Absolute range picker |
 | Server State | `@tanstack/react-query` v5.x | Data fetching, caching, polling, SSE integration |
-| Client State | `zustand` v5.x | Sidebar, filters, time range, theme (~1KB gzipped) |
+| Client State | `zustand` v5.x | Sidebar, filters, time range, theme, assistant conversation (~1KB gzipped) |
+| AI Assistant | Anthropic Messages API | Tool-use with streaming for investigation assistant (React-side, no backend dependency) |
+
+---
+
+## 11. AI Investigation Assistant Specification
+
+### 11.1 Architecture
+
+The AI assistant is a React-side chat panel that calls the Anthropic API with tool definitions mapped to the SIEM's existing REST API. The agent doesn't touch the Go backend's hot path — it's a consumer of the same API the dashboard uses. Anything the dashboard can display, the agent can query, summarize, and reason about.
+
+```
+sentinel-dashboard (React)
+├── [All dashboard pages]
+├── AI Assistant Panel ──→ Anthropic API (tool_use)
+│                          Tools = SIEM REST API endpoints
+└── SIEM REST API Client ──→ sentinel-query (Go) ──→ Elasticsearch
+```
+
+### 11.2 Tool Definitions
+
+The agent's tools are the SIEM's existing REST API endpoints wrapped as Anthropic tool schemas:
+
+| Tool Name | Maps To | Description |
+|-----------|---------|-------------|
+| `search_events` | `POST /api/v1/query` | Execute a SIEM query from natural language |
+| `list_alerts` | `GET /api/v1/alerts` | List alerts with filters |
+| `get_alert` | `GET /api/v1/alerts/{id}` | Full alert detail with linked events and MITRE mapping |
+| `get_case` | `GET /api/v1/cases/{id}` | Case detail with observables, timeline, linked alerts |
+| `list_cases` | `GET /api/v1/cases` | List cases with filters |
+| `get_case_stats` | `GET /api/v1/cases/stats` | Case metrics (open count, MTTD, MTTR) |
+| `get_rule` | `GET /api/v1/rules/{id}` | Sigma rule definition with detection logic |
+| `list_rules` | `GET /api/v1/rules` | Loaded Sigma rules with hit counts |
+| `get_source_health` | `GET /api/v1/sources` | Ingestion source health |
+| `lookup_observable` | `POST /api/v1/query` | Search all events for a specific IP, hash, username, or domain |
+| `get_mitre_technique` | Static lookup | MITRE ATT&CK technique description and linked rules |
+
+### 11.3 Capabilities
+
+**Query Assistance:** Natural language → SIEM query syntax translation. The agent generates valid queries, validates against the grammar, and offers "Copy to Hunt" actions. Also works in reverse — paste a query, agent explains it in plain language.
+
+**Alert Triage Summary:** Multi-step tool use to summarize an alert: what fired, why, process parent chain, cross-source context (AV/DLP events for same host/user), risk assessment, and recommended actions.
+
+**Investigation Copilot:** From the Cases page, the agent runs a multi-step investigation: scope (hosts/users) → timeline → lateral movement check → data exposure check (DLP events) → observable enrichment → structured narrative with recommendations. Each step streams to the analyst in real time. Analyst can interrupt and redirect.
+
+**Detection Rule Drafting:** Generates Sigma YAML from natural language pattern descriptions with correct logsource mapping, field names, modifiers, and MITRE ATT&CK tags. Optionally tests against historical data to estimate hit rate and false positive rate.
+
+**Cross-Portfolio Attack Narrative:** When cross-source correlation rules fire, the agent constructs a unified incident story from EDR, AV, and DLP telemetry — attributing each stage of the kill chain to the correct product with timestamps, entities, and recommended response actions.
+
+### 11.4 UI Design
+
+The assistant is a **slide-out right panel** (400px wide) accessible via a persistent icon button in the global header bar. It opens alongside any page.
+
+**Panel layout:** Header with context indicator, message stream with markdown rendering and collapsible tool call cards, input bar with multi-line support, and context-dependent quick action buttons ("Explain this alert", "Summarize investigation", "Write a Sigma rule for this query").
+
+**Streaming:** Token-by-token via Anthropic streaming API. Tool calls appear as in-progress indicators that resolve to collapsible result cards.
+
+**"Copy to..." actions:** Copy query to Hunt (injects into query bar), Copy to Case Comment (posts to case timeline attributed to "SentinelAI"), Copy Sigma Rule (modal with syntax highlighting + save), Copy to Clipboard.
+
+### 11.5 Design Constraints
+
+- **No direct ES access.** Agent only uses the REST API — same endpoints as the dashboard. Cannot bypass access controls.
+- **No autonomous actions.** Agent never modifies state without analyst confirmation. Copilot, not autopilot.
+- **Ephemeral conversations.** Zustand in-memory only. No server-side persistence. Cleared on page reload.
+- **Graceful degradation.** If Anthropic API is unavailable, assistant shows offline indicator. Dashboard functions identically.
+- **Token budget awareness.** Tool results truncated to configurable limit (default 4000 tokens) with "results truncated" indicator.
+
+### 11.6 System Prompt
+
+Stored as `web/src/agent/system_prompt.md`, loaded at runtime. Covers: Sentinel portfolio context, ECS field reference, query syntax grammar, Sigma rule structure, MITRE ATT&CK context, and investigation methodology.
 
 ---
 
 # PART II: IMPLEMENTATION PHASES
 
-## 11. How To Use Part II With Claude Code
+## 12. How To Use Part II With Claude Code
 
 Same workflow as SentinelEDR: each task has an ID, files, acceptance criteria, and complexity (S/M/L/XL).
 
@@ -648,6 +719,25 @@ Same workflow as SentinelEDR: each task has an ID, files, acceptance criteria, a
 
 ---
 
+### Phase 12: AI Investigation Assistant
+
+**Goal:** AI-powered investigation assistant integrated into the dashboard, using the SIEM's REST API as its tool set.
+
+| ID | Task | Files | Acceptance Criteria | Est. |
+|----|------|-------|---------------------|------|
+| P12-T1 | Agent tool schema definitions. Define all 11 tools from Section 11.2 as Anthropic tool-use JSON schemas. Map each tool to the corresponding SIEM REST API fetch call. Error handling for API failures returns descriptive error to model. | `web/src/agent/tools.js`, `web/src/agent/tool_executor.js` | All 11 tools have valid schemas. Tool executor calls correct API endpoint. Returns parsed JSON to model. API errors handled gracefully. | M |
+| P12-T2 | System prompt engineering. Write system prompt covering Sentinel portfolio context, ECS field reference, query syntax grammar, Sigma rule structure, MITRE ATT&CK context, and investigation methodology. Store as markdown loaded at runtime. | `web/src/agent/system_prompt.md`, `web/src/agent/prompt_loader.js` | System prompt loads. Agent correctly generates SIEM queries from natural language. Agent correctly interprets Sigma rule YAML. Agent references correct ECS field names. | L |
+| P12-T3 | Anthropic API client with streaming. Implement messages API with tool_use, streaming response handling, and multi-turn conversation management. Handle tool call → tool result → continue loop. Rate limits and error states. | `web/src/agent/anthropic_client.js`, `web/src/agent/conversation.js` | Streaming tokens render in real time. Tool calls execute and return results. Multi-turn conversation maintains context. API errors show user-friendly message. | L |
+| P12-T4 | Assistant panel UI. Slide-out panel with header, message stream (markdown rendering, tool call cards), input bar, and quick action buttons. Context injection based on active page/entity. Zustand store for conversation state. | `web/src/components/AssistantPanel.jsx`, `web/src/components/AssistantMessage.jsx`, `web/src/components/ToolCallCard.jsx`, `web/src/stores/assistantStore.js` | Panel opens/closes from header icon. Messages render with markdown. Tool calls show as collapsible cards. Context pre-loaded from active page. Quick action buttons trigger pre-defined prompts. | XL |
+| P12-T5 | "Copy to..." action handlers. Copy to Hunt (inject query into query bar), Copy to Case Comment (POST to case timeline API, attributed to "SentinelAI"), Copy Sigma Rule (modal with syntax highlighting + save), Copy to Clipboard. | `web/src/agent/actions.js`, `web/src/components/SigmaRuleModal.jsx` | Copy to Hunt populates query bar. Copy to Case Comment creates timeline entry. Copy Sigma Rule shows valid YAML in modal. Clipboard copy works. | M |
+| P12-T6 | Query assistance mode. Agent generates SIEM query syntax from natural language, validates against grammar, offers "Copy to Hunt" action. Reverse mode: paste a query, agent explains it in plain language. | `web/src/agent/modes/query_assist.js` | Natural language → valid SIEM query. Query → plain English explanation. Generated queries return results when executed. Invalid queries detected with corrections. | M |
+| P12-T7 | Alert triage mode. Agent summarizes alert: what fired, why, process chain, cross-source context, risk assessment, recommended actions. Multi-step tool use (get_alert → search related events → lookup observables). | `web/src/agent/modes/alert_triage.js` | "Explain this alert" produces accurate summary. Agent identifies process parent chain. Agent checks cross-source events (AV/DLP) for same host/user. Recommendations are actionable. | L |
+| P12-T8 | Investigation copilot mode. Multi-step investigation: scope → timeline → lateral movement check → data exposure check → observable enrichment → narrative. Streams each step. Analyst can interrupt and redirect. | `web/src/agent/modes/investigation.js` | "What happened here?" produces structured investigation. Each step visible via tool call cards. Agent queries across EDR, AV, and DLP events. Narrative includes timeline and recommendations. Interruption works. | XL |
+| P12-T9 | Detection rule drafting mode. Agent generates Sigma YAML from natural language pattern description. Correct logsource mapping, field names, modifiers, MITRE tags. Optionally tests against historical data via search_events. | `web/src/agent/modes/rule_draft.js` | Generated Sigma YAML parses without error. Logsource mapping correct. MITRE tags match described technique. Historical test returns hit count and sample matches. | L |
+| P12-T10 | Integration testing. 5 end-to-end scenarios: (1) Natural language query → results. (2) Alert explanation with cross-source context. (3) Case investigation with multi-step tool use. (4) Sigma rule generation + historical validation. (5) Cross-portfolio attack narrative from full-chain correlation alert. | `tests/integration/agent_test.js` | All 5 scenarios produce correct output. Tool calls hit correct endpoints. Streaming renders without errors. No hallucinated field names or query syntax. Cross-portfolio narrative correctly attributes events to EDR/AV/DLP sources. | L |
+
+---
+
 ## Phase Summary
 
 | Phase | Name | Tasks | Depends On | Focus |
@@ -665,8 +755,9 @@ Same workflow as SentinelEDR: each task has an ID, files, acceptance criteria, a
 | P9 | Case Management | 7 | P4, P7 | Response + Investigation |
 | P10 | Integration Tests | 5 | All | Validation |
 | P11 | Hardening | 4 | All | Production |
+| P12 | AI Investigation Assistant | 10 | P6, P7, P9 | AI-Augmented Investigation |
 
-**Total: 65 tasks, 13 phases. Estimated 45–65 Claude Code sessions.**
+**Total: 75 tasks, 14 phases. Estimated 51–73 Claude Code sessions.**
 
 ---
 
@@ -699,3 +790,4 @@ React + Tailwind CSS. Component isolation. TanStack Query for all server state. 
 - Email notifications: SMTP alerts on high/critical severity with configurable thresholds.
 - Browser push notifications: via service worker triggered by SSE feed.
 - Slack/Teams webhooks: alert channel integration for team visibility.
+- AI assistant enhancements: autonomous triage (agent pre-triages low-severity alerts with analyst approval queue), threat intel enrichment via tool calls to VirusTotal/AbuseIPDB APIs, natural language report generation for executive summaries.
