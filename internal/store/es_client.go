@@ -14,6 +14,15 @@ import (
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
 )
 
+// Indexer is the interface used by the ingest pipeline to write events to storage.
+// Implementations include the Elasticsearch Store and test mocks.
+type Indexer interface {
+	BulkIndex(ctx context.Context, index string, events []common.ECSEvent) error
+}
+
+// Verify Store implements Indexer at compile time.
+var _ Indexer = (*Store)(nil)
+
 // Store wraps the Elasticsearch client with SIEM-specific operations.
 type Store struct {
 	client *elasticsearch.Client

@@ -26,6 +26,11 @@ type ECSEvent struct {
 	DLP         *DLPFields         `json:"dlp,omitempty"`
 	AV          *AVFields          `json:"av,omitempty"`
 
+	// SourceType identifies the originating source (e.g., "sentineledr", "sentinel_av").
+	// Used by the pipeline to route events to the correct ES index.
+	// Not part of ECS — excluded from JSON sent to Elasticsearch.
+	SourceType string `json:"-"`
+
 	// Raw preserves the original event payload before normalization.
 	Raw json.RawMessage `json:"raw,omitempty"`
 }

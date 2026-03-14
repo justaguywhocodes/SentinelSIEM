@@ -44,15 +44,21 @@ func (e *Engine) Normalize(raw json.RawMessage) (*common.ECSEvent, error) {
 			if err != nil {
 				return nil, fmt.Errorf("normalize: parser %q: %w", envelope.SourceType, err)
 			}
-			// Always preserve raw.
+			// Always preserve raw and source type for index routing.
 			event.Raw = raw
+			event.SourceType = envelope.SourceType
 			return event, nil
 		}
 	}
 
 	// Unknown or missing source_type — preserve raw in a minimal event.
+	sourceType := envelope.SourceType
+	if sourceType == "" {
+		sourceType = "unknown"
+	}
 	return &common.ECSEvent{
-		Timestamp: time.Now().UTC(),
+		Timestamp:  time.Now().UTC(),
+		SourceType: sourceType,
 		Event: &common.EventFields{
 			Kind: "event",
 		},

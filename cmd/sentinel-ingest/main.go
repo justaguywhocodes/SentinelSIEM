@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,6 +13,9 @@ import (
 
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
 	"github.com/SentinelSIEM/sentinel-siem/internal/ingest"
+	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
+	"github.com/SentinelSIEM/sentinel-siem/internal/normalize/parsers"
+	"github.com/SentinelSIEM/sentinel-siem/internal/store"
 )
 
 func main() {
@@ -25,13 +27,32 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Event handler — logs received events for now.
-	// Pipeline integration (normalize → store) is added in P1-T4.
-	handler := func(events []json.RawMessage) {
-		log.Printf("Received %d events", len(events))
+	// Initialize parser registry with all known parsers.
+	registry := normalize.NewRegistry()
+	registry.Register(parsers.NewSentinelEDRParser())
+	engine := normalize.NewEngine(registry)
+
+	log.Printf("Registered parsers: %v", registry.SourceTypes())
+
+	// Initialize Elasticsearch store.
+	esStore, err := store.New(cfg.Elasticsearch)
+	if err != nil {
+		log.Fatalf("Failed to create Elasticsearch store: %v", err)
 	}
 
-	listener := ingest.NewHTTPListener(cfg.Ingest, handler)
+	// Ensure index template exists.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := esStore.EnsureTemplate(ctx); err != nil {
+		log.Printf("Warning: failed to ensure index template (ES may be unavailable): %v", err)
+	} else {
+		log.Println("Elasticsearch index template ensured")
+	}
+
+	// Build the ingest pipeline: HTTP → normalize → ES.
+	pipeline := ingest.NewPipeline(engine, esStore, cfg.Elasticsearch.IndexPrefix)
+	listener := ingest.NewHTTPListener(cfg.Ingest, pipeline.Handle)
 
 	srv := &http.Server{
 		Addr:         listener.ListenAddr(),
@@ -55,10 +76,10 @@ func main() {
 	<-done
 	fmt.Println("\nShutting down...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Shutdown error: %v", err)
 	}
 	fmt.Println("Stopped.")
