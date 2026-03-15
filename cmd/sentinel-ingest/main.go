@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
+	"github.com/SentinelSIEM/sentinel-siem/internal/correlate"
 	"github.com/SentinelSIEM/sentinel-siem/internal/ingest"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize/parsers"
@@ -68,9 +69,31 @@ func main() {
 		log.Println("NDR host score index ensured")
 	}
 
-	// Build the ingest pipeline: HTTP → normalize → ES.
+	// Load Sigma rules and logsource map for rule engine.
+	var ruleEngine *correlate.RuleEngine
+	sigmaRules, parseErrors := correlate.LoadRulesFromDir(cfg.Correlate.RulesDir)
+	for _, pe := range parseErrors {
+		log.Printf("Warning: rule parse error: %v", pe)
+	}
+
+	if len(sigmaRules) > 0 {
+		lsMap, err := correlate.LoadLogsourceMap(cfg.Correlate.LogsourceMapPath)
+		if err != nil {
+			log.Printf("Warning: failed to load logsource map: %v", err)
+		} else {
+			sigmaRegistry := correlate.NewRuleRegistry(sigmaRules)
+			ruleEngine = correlate.NewRuleEngine(sigmaRegistry, lsMap)
+			stats := ruleEngine.Stats()
+			log.Printf("Sigma rule engine loaded: %d rules compiled, %d skipped, %d buckets, %d errors",
+				stats.RulesCompiled, stats.RulesSkipped, stats.BucketCount, len(stats.CompileErrors))
+		}
+	} else {
+		log.Println("No Sigma rules found, rule engine disabled")
+	}
+
+	// Build the ingest pipeline: HTTP → normalize → ES → rule engine.
 	// esStore implements both Indexer and HostScoreIndexer.
-	pipeline := ingest.NewPipeline(engine, esStore, cfg.Elasticsearch.IndexPrefix, esStore)
+	pipeline := ingest.NewPipeline(engine, esStore, cfg.Elasticsearch.IndexPrefix, esStore, ruleEngine)
 	listener := ingest.NewHTTPListener(cfg.Ingest, pipeline.Handle)
 
 	srv := &http.Server{

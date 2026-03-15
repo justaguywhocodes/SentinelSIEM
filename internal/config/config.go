@@ -57,9 +57,10 @@ type SyslogConfig struct {
 
 // CorrelateConfig holds correlation engine settings.
 type CorrelateConfig struct {
-	RulesDir       string `toml:"rules_dir"`
-	ReloadInterval int    `toml:"reload_interval_sec"`
-	StateExpirySec int    `toml:"state_expiry_sec"`
+	RulesDir        string `toml:"rules_dir"`
+	LogsourceMapPath string `toml:"logsource_map_path"`
+	ReloadInterval  int    `toml:"reload_interval_sec"`
+	StateExpirySec  int    `toml:"state_expiry_sec"`
 }
 
 // QueryConfig holds query API server settings.
@@ -102,9 +103,10 @@ func Defaults() Config {
 			},
 		},
 		Correlate: CorrelateConfig{
-			RulesDir:       "rules",
-			ReloadInterval: 30,
-			StateExpirySec: 3600,
+			RulesDir:         "rules",
+			LogsourceMapPath: "parsers/logsource_map.yaml",
+			ReloadInterval:   30,
+			StateExpirySec:   3600,
 		},
 		Query: QueryConfig{
 			Addr:        "0.0.0.0",
