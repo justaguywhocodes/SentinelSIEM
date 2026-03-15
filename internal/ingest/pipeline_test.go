@@ -3,11 +3,13 @@ package ingest
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/SentinelSIEM/sentinel-siem/internal/common"
+	"github.com/SentinelSIEM/sentinel-siem/internal/correlate"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
 )
 
@@ -48,6 +50,30 @@ func (m *mockIndexer) indexNames() []string {
 		names = append(names, c.Index)
 	}
 	return names
+}
+
+func (m *mockIndexer) alertCalls() []bulkIndexCall {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var result []bulkIndexCall
+	for _, c := range m.calls {
+		if strings.Contains(c.Index, "-alerts-") {
+			result = append(result, c)
+		}
+	}
+	return result
+}
+
+func (m *mockIndexer) eventCalls() []bulkIndexCall {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var result []bulkIndexCall
+	for _, c := range m.calls {
+		if strings.Contains(c.Index, "-events-") {
+			result = append(result, c)
+		}
+	}
+	return result
 }
 
 // testParser returns a fixed ECSEvent for testing.
@@ -100,7 +126,7 @@ func TestPipelineNormalizeAndIndex(t *testing.T) {
 	reg.Register(&testParser{sourceType: "sentinel_edr"})
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	// Send 5 events.
 	events := make([]json.RawMessage, 5)
@@ -120,7 +146,7 @@ func TestPipelineIndexNaming(t *testing.T) {
 	reg.Register(&testParser{sourceType: "sentinel_edr"})
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	pipeline.Handle([]json.RawMessage{makeTestEvent("sentinel_edr")})
 
@@ -140,7 +166,7 @@ func TestPipelineUnknownSourceType(t *testing.T) {
 	reg := normalize.NewRegistry()
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	raw := json.RawMessage(`{"source_type":"futuretype","data":"test"}`)
 	pipeline.Handle([]json.RawMessage{raw})
@@ -160,7 +186,7 @@ func TestPipelineMissingSourceType(t *testing.T) {
 	reg := normalize.NewRegistry()
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	raw := json.RawMessage(`{"data":"no source type"}`)
 	pipeline.Handle([]json.RawMessage{raw})
@@ -181,7 +207,7 @@ func TestPipelineMixedValidInvalid(t *testing.T) {
 	reg.Register(&testParser{sourceType: "sentinel_edr"})
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	events := []json.RawMessage{
 		makeTestEvent("sentinel_edr"),
@@ -205,7 +231,7 @@ func TestPipelineMultipleSourceTypes(t *testing.T) {
 	reg.Register(&testParser{sourceType: "sentinel_av"})
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	events := []json.RawMessage{
 		makeTestEvent("sentinel_edr"),
@@ -238,7 +264,7 @@ func TestPipelineEmptyBatch(t *testing.T) {
 	reg := normalize.NewRegistry()
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	// Should not panic or call indexer.
 	pipeline.Handle(nil)
@@ -253,7 +279,7 @@ func TestPipelineDefaultPrefix(t *testing.T) {
 	reg := normalize.NewRegistry()
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "", nil)
+	pipeline := NewPipeline(engine, indexer, "", nil, nil)
 
 	raw := json.RawMessage(`{"source_type":"test","data":"x"}`)
 	pipeline.Handle([]json.RawMessage{raw})
@@ -273,7 +299,7 @@ func TestPipelineCustomPrefix(t *testing.T) {
 	reg := normalize.NewRegistry()
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
-	pipeline := NewPipeline(engine, indexer, "myorg", nil)
+	pipeline := NewPipeline(engine, indexer, "myorg", nil, nil)
 
 	raw := json.RawMessage(`{"source_type":"test","data":"x"}`)
 	pipeline.Handle([]json.RawMessage{raw})
@@ -293,8 +319,8 @@ func TestPipelineCustomPrefix(t *testing.T) {
 
 // mockHostScoreIndexer captures UpsertHostScore calls.
 type mockHostScoreIndexer struct {
-	mu     sync.Mutex
-	calls  []*common.ECSEvent
+	mu      sync.Mutex
+	calls   []*common.ECSEvent
 	failErr error
 }
 
@@ -345,7 +371,7 @@ func TestPipelineHostScoreUpsert(t *testing.T) {
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
 	hsIndexer := &mockHostScoreIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer)
+	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer, nil)
 
 	events := []json.RawMessage{
 		makeTestNDRHostScoreEvent(),
@@ -369,7 +395,7 @@ func TestPipelineHostScoreNotUpsertedForNonHostScore(t *testing.T) {
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
 	hsIndexer := &mockHostScoreIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer)
+	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer, nil)
 
 	events := []json.RawMessage{makeTestEvent("sentinel_edr")}
 	pipeline.Handle(events)
@@ -386,7 +412,7 @@ func TestPipelineHostScoreNilIndexer(t *testing.T) {
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
 	// nil host score indexer — should not panic.
-	pipeline := NewPipeline(engine, indexer, "sentinel", nil)
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
 
 	events := []json.RawMessage{makeTestNDRHostScoreEvent()}
 	pipeline.Handle(events) // Should not panic.
@@ -402,7 +428,7 @@ func TestPipelineMultipleHostScoreEvents(t *testing.T) {
 	engine := normalize.NewEngine(reg)
 	indexer := &mockIndexer{}
 	hsIndexer := &mockHostScoreIndexer{}
-	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer)
+	pipeline := NewPipeline(engine, indexer, "sentinel", hsIndexer, nil)
 
 	events := []json.RawMessage{
 		makeTestNDRHostScoreEvent(),
@@ -459,6 +485,400 @@ func makeTestNDRHostScoreEvent() json.RawMessage {
 	}
 	data, _ := json.Marshal(event)
 	return data
+}
+
+// --- Rule engine integration tests ---
+
+// buildTestRuleEngine creates a minimal rule engine with a single rule that
+// matches process_creation events where process.name == "malware.exe".
+func buildTestRuleEngine() *correlate.RuleEngine {
+	rules := []*correlate.SigmaRule{
+		{
+			ID:    "test-rule-001",
+			Title: "Suspicious Process",
+			Level: "high",
+			Tags:  []string{"attack.execution"},
+			Logsource: correlate.SigmaLogsource{
+				Category: "process_creation",
+			},
+			Detection: &correlate.SigmaDetection{
+				Selections: map[string]correlate.SigmaSelection{
+					"selection": {
+						{
+							FieldMatchers: []correlate.SigmaFieldMatcher{
+								{
+									Field:  "process.name",
+									Values: []interface{}{"malware.exe"},
+								},
+							},
+						},
+					},
+				},
+				Condition: "selection",
+			},
+		},
+	}
+
+	registry := correlate.NewRuleRegistry(rules)
+
+	lsMap, _ := correlate.ParseLogsourceMap([]byte(`
+mappings:
+  - logsource:
+      category: process_creation
+    conditions:
+      event.category: process
+      event.type: start
+`))
+
+	return correlate.NewRuleEngine(registry, lsMap)
+}
+
+// matchingParser returns an event that will match the test rule.
+type matchingParser struct{}
+
+func (p *matchingParser) SourceType() string { return "sentinel_edr" }
+
+func (p *matchingParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
+	return &common.ECSEvent{
+		Timestamp: time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC),
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"process"},
+			Type:     []string{"start"},
+			Action:   "process_create",
+		},
+		Process: &common.ProcessFields{
+			PID:  666,
+			Name: "malware.exe",
+		},
+	}, nil
+}
+
+// nonMatchingParser returns an event that will NOT match the test rule.
+type nonMatchingParser struct{}
+
+func (p *nonMatchingParser) SourceType() string { return "sentinel_edr" }
+
+func (p *nonMatchingParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
+	return &common.ECSEvent{
+		Timestamp: time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC),
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"process"},
+			Type:     []string{"start"},
+			Action:   "process_create",
+		},
+		Process: &common.ProcessFields{
+			PID:  1234,
+			Name: "notepad.exe",
+		},
+	}, nil
+}
+
+func TestPipelineRuleEngineMatchGeneratesAlert(t *testing.T) {
+	ruleEngine := buildTestRuleEngine()
+	reg := normalize.NewRegistry()
+	reg.Register(&matchingParser{})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, ruleEngine)
+
+	pipeline.Handle([]json.RawMessage{makeTestEvent("sentinel_edr")})
+
+	// Should have event index + alert index calls.
+	alertCalls := indexer.alertCalls()
+	if len(alertCalls) == 0 {
+		t.Fatal("expected alert index calls, got none")
+	}
+
+	// Verify alert was indexed to correct index pattern.
+	for _, call := range alertCalls {
+		if !strings.HasPrefix(call.Index, "sentinel-alerts-") {
+			t.Errorf("alert index = %q, want prefix 'sentinel-alerts-'", call.Index)
+		}
+	}
+
+	// Verify alert document fields.
+	alertDoc := alertCalls[0].Events[0]
+	if alertDoc.Event == nil {
+		t.Fatal("alert event fields are nil")
+	}
+	if alertDoc.Event.Kind != "alert" {
+		t.Errorf("alert kind = %q, want 'alert'", alertDoc.Event.Kind)
+	}
+	if alertDoc.Event.Action != "sigma_match" {
+		t.Errorf("alert action = %q, want 'sigma_match'", alertDoc.Event.Action)
+	}
+	if alertDoc.SourceType != "sigma_alert" {
+		t.Errorf("alert source_type = %q, want 'sigma_alert'", alertDoc.SourceType)
+	}
+	if alertDoc.Observer == nil || alertDoc.Observer.Name != "Suspicious Process" {
+		t.Errorf("alert observer.name = %q, want 'Suspicious Process'",
+			safeObserverName(alertDoc.Observer))
+	}
+	if alertDoc.Observer == nil || alertDoc.Observer.Ingress == nil ||
+		alertDoc.Observer.Ingress.Name != "test-rule-001" {
+		t.Error("alert observer.ingress.name should contain rule ID 'test-rule-001'")
+	}
+}
+
+func TestPipelineRuleEngineNoMatchNoAlert(t *testing.T) {
+	ruleEngine := buildTestRuleEngine()
+	reg := normalize.NewRegistry()
+	reg.Register(&nonMatchingParser{})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, ruleEngine)
+
+	pipeline.Handle([]json.RawMessage{makeTestEvent("sentinel_edr")})
+
+	// Events should still be indexed.
+	eventCalls := indexer.eventCalls()
+	if len(eventCalls) == 0 {
+		t.Fatal("expected event index calls")
+	}
+
+	// But NO alerts should be created.
+	alertCalls := indexer.alertCalls()
+	if len(alertCalls) != 0 {
+		t.Errorf("expected 0 alert calls, got %d", len(alertCalls))
+	}
+}
+
+func TestPipelineNilRuleEngineNoAlerts(t *testing.T) {
+	reg := normalize.NewRegistry()
+	reg.Register(&testParser{sourceType: "sentinel_edr"})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	// nil rule engine — should not panic or generate alerts.
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, nil)
+
+	pipeline.Handle([]json.RawMessage{makeTestEvent("sentinel_edr")})
+
+	alertCalls := indexer.alertCalls()
+	if len(alertCalls) != 0 {
+		t.Errorf("expected 0 alert calls with nil rule engine, got %d", len(alertCalls))
+	}
+}
+
+func TestPipelineMultipleMatchingEvents(t *testing.T) {
+	ruleEngine := buildTestRuleEngine()
+	reg := normalize.NewRegistry()
+	reg.Register(&matchingParser{})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, ruleEngine)
+
+	events := []json.RawMessage{
+		makeTestEvent("sentinel_edr"),
+		makeTestEvent("sentinel_edr"),
+		makeTestEvent("sentinel_edr"),
+	}
+	pipeline.Handle(events)
+
+	// Should generate 3 alerts.
+	totalAlerts := 0
+	for _, call := range indexer.alertCalls() {
+		totalAlerts += len(call.Events)
+	}
+	if totalAlerts != 3 {
+		t.Errorf("expected 3 alerts, got %d", totalAlerts)
+	}
+}
+
+func TestPipelineMixedMatchAndNonMatch(t *testing.T) {
+	ruleEngine := buildTestRuleEngine()
+
+	// Use a custom parser that alternates between matching and non-matching events.
+	reg := normalize.NewRegistry()
+	reg.Register(&mixedParser{})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	pipeline := NewPipeline(engine, indexer, "sentinel", nil, ruleEngine)
+
+	events := []json.RawMessage{
+		makeTestEvent("sentinel_edr"),
+		makeTestEvent("sentinel_edr"),
+	}
+	pipeline.Handle(events)
+
+	// mixedParser alternates: first call → malware.exe (match), second → notepad.exe (no match).
+	totalAlerts := 0
+	for _, call := range indexer.alertCalls() {
+		totalAlerts += len(call.Events)
+	}
+	if totalAlerts != 1 {
+		t.Errorf("expected 1 alert (1 match, 1 non-match), got %d", totalAlerts)
+	}
+}
+
+// mixedParser alternates between matching and non-matching events.
+type mixedParser struct {
+	mu    sync.Mutex
+	count int
+}
+
+func (p *mixedParser) SourceType() string { return "sentinel_edr" }
+
+func (p *mixedParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
+	p.mu.Lock()
+	c := p.count
+	p.count++
+	p.mu.Unlock()
+
+	processName := "notepad.exe"
+	if c%2 == 0 {
+		processName = "malware.exe"
+	}
+	return &common.ECSEvent{
+		Timestamp: time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC),
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"process"},
+			Type:     []string{"start"},
+		},
+		Process: &common.ProcessFields{
+			PID:  1234,
+			Name: processName,
+		},
+	}, nil
+}
+
+func TestPipelineAlertSeverityLevels(t *testing.T) {
+	tests := []struct {
+		level    string
+		expected int
+	}{
+		{"informational", 1},
+		{"low", 2},
+		{"medium", 3},
+		{"high", 4},
+		{"critical", 5},
+		{"unknown", 0},
+		{"", 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.level, func(t *testing.T) {
+			got := levelToSeverity(tc.level)
+			if got != tc.expected {
+				t.Errorf("levelToSeverity(%q) = %d, want %d", tc.level, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestAlertToDocument(t *testing.T) {
+	event := &common.ECSEvent{
+		Timestamp: time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC),
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"process"},
+			Type:     []string{"start"},
+		},
+		Process: &common.ProcessFields{
+			PID:  666,
+			Name: "malware.exe",
+		},
+	}
+
+	alert := correlate.Alert{
+		RuleID: "rule-123",
+		Title:  "Test Alert",
+		Level:  "high",
+		Tags:   []string{"attack.execution", "attack.t1059"},
+		Event:  event,
+	}
+
+	doc := alertToDocument(alert)
+
+	// Check alert event metadata.
+	if doc.Event.Kind != "alert" {
+		t.Errorf("kind = %q, want 'alert'", doc.Event.Kind)
+	}
+	if doc.Event.Severity != 4 {
+		t.Errorf("severity = %d, want 4 (high)", doc.Event.Severity)
+	}
+	if doc.SourceType != "sigma_alert" {
+		t.Errorf("source_type = %q, want 'sigma_alert'", doc.SourceType)
+	}
+
+	// Check observer (rule metadata).
+	if doc.Observer == nil {
+		t.Fatal("observer is nil")
+	}
+	if doc.Observer.Name != "Test Alert" {
+		t.Errorf("observer.name = %q, want 'Test Alert'", doc.Observer.Name)
+	}
+	if doc.Observer.Type != "sigma" {
+		t.Errorf("observer.type = %q, want 'sigma'", doc.Observer.Type)
+	}
+	if doc.Observer.Ingress == nil || doc.Observer.Ingress.Name != "rule-123" {
+		t.Error("observer.ingress.name should be 'rule-123'")
+	}
+
+	// Check tags preserved in threat.technique.
+	if doc.Threat == nil || len(doc.Threat.Technique) != 2 {
+		t.Errorf("threat.technique length = %d, want 2", len(doc.Threat.Technique))
+	}
+
+	// Original process data should be preserved.
+	if doc.Process == nil || doc.Process.Name != "malware.exe" {
+		t.Error("original process data should be preserved")
+	}
+}
+
+func TestAlertToDocumentEmptyRuleID(t *testing.T) {
+	alert := correlate.Alert{
+		Title: "No ID Rule",
+		Level: "low",
+		Event: &common.ECSEvent{
+			Timestamp: time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC),
+		},
+	}
+
+	doc := alertToDocument(alert)
+	if doc.Observer == nil {
+		t.Fatal("observer should not be nil")
+	}
+	// With empty RuleID, ingress should not be set.
+	if doc.Observer.Ingress != nil {
+		t.Error("observer.ingress should be nil when RuleID is empty")
+	}
+}
+
+func TestPipelineAlertIndexNaming(t *testing.T) {
+	ruleEngine := buildTestRuleEngine()
+	reg := normalize.NewRegistry()
+	reg.Register(&matchingParser{})
+	engine := normalize.NewEngine(reg)
+	indexer := &mockIndexer{}
+	pipeline := NewPipeline(engine, indexer, "myprefix", nil, ruleEngine)
+
+	pipeline.Handle([]json.RawMessage{makeTestEvent("sentinel_edr")})
+
+	alertCalls := indexer.alertCalls()
+	if len(alertCalls) == 0 {
+		t.Fatal("expected alert index calls")
+	}
+
+	// Alert index should use custom prefix.
+	for _, call := range alertCalls {
+		if !strings.HasPrefix(call.Index, "myprefix-alerts-") {
+			t.Errorf("alert index = %q, want prefix 'myprefix-alerts-'", call.Index)
+		}
+		// Should contain date pattern.
+		if !strings.Contains(call.Index, "2026.03.14") {
+			t.Errorf("alert index = %q, should contain date '2026.03.14'", call.Index)
+		}
+	}
+}
+
+func safeObserverName(o *common.ObserverFields) string {
+	if o == nil {
+		return "<nil>"
+	}
+	return o.Name
 }
 
 func contains(s, substr string) bool {
