@@ -33,6 +33,41 @@ mappings:
     conditions:
       source_type: sentinel_dlp
 
+  # SentinelNDR: network detection and response telemetry
+  - logsource:
+      product: sentinel_ndr
+    conditions:
+      source_type: sentinel_ndr
+
+  # ============================================================
+  # NDR Protocol-Level Mappings (Dual Logsource Matching)
+  # ============================================================
+  # NDR protocol events support dual logsource matching:
+  # ndr:dns matches both product:sentinel_ndr AND category:dns
+  # This allows community SigmaHQ network rules to automatically
+  # evaluate against NDR protocol metadata without modification.
+
+  # DNS: matches NDR DNS metadata — enables SigmaHQ dns rules
+  - logsource:
+      category: dns
+    conditions:
+      event.category: network
+      event.action: dns_query
+
+  # Web/HTTP: matches NDR HTTP metadata — enables SigmaHQ proxy/web rules
+  - logsource:
+      category: proxy
+    conditions:
+      event.category: web
+      event.action: http_request
+
+  # Alternative web category used by some SigmaHQ rules
+  - logsource:
+      category: webserver
+    conditions:
+      event.category: web
+      event.action: http_request
+
   # ============================================================
   # ECS Category-Level Mappings (Cross-Product)
   # ============================================================
@@ -130,3 +165,15 @@ mappings:
     conditions:
       event.category: network
       event.type: denied
+
+  # Intrusion detection: matches NDR detections and signatures
+  - logsource:
+      category: ids
+    conditions:
+      event.category: intrusion_detection
+
+  # Authentication: matches NDR Kerberos/NTLM AND Windows logon events
+  - logsource:
+      category: authentication
+    conditions:
+      event.category: authentication

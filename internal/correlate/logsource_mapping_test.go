@@ -60,6 +60,27 @@ mappings:
     conditions:
       source_type: winevt
       winevt.channel: Microsoft-Windows-Sysmon/Operational
+
+  - logsource:
+      product: sentinel_ndr
+    conditions:
+      source_type: sentinel_ndr
+
+  - logsource:
+      category: dns
+    conditions:
+      event.category: network
+      event.action: dns_query
+
+  - logsource:
+      category: ids
+    conditions:
+      event.category: intrusion_detection
+
+  - logsource:
+      category: authentication
+    conditions:
+      event.category: authentication
 `
 
 func loadTestMap(t *testing.T) *LogsourceMap {
@@ -73,8 +94,8 @@ func loadTestMap(t *testing.T) *LogsourceMap {
 
 func TestParseLogsourceMap(t *testing.T) {
 	lm := loadTestMap(t)
-	if lm.MappingCount() != 9 {
-		t.Errorf("MappingCount() = %d, want 9", lm.MappingCount())
+	if lm.MappingCount() != 13 {
+		t.Errorf("MappingCount() = %d, want 13", lm.MappingCount())
 	}
 }
 
@@ -520,8 +541,8 @@ func TestLoadLogsourceMapFromFile(t *testing.T) {
 		t.Fatalf("LoadLogsourceMap failed: %v", err)
 	}
 
-	if lm.MappingCount() != 9 {
-		t.Errorf("MappingCount() = %d, want 9", lm.MappingCount())
+	if lm.MappingCount() != 13 {
+		t.Errorf("MappingCount() = %d, want 13", lm.MappingCount())
 	}
 }
 
@@ -529,5 +550,301 @@ func TestLoadLogsourceMapFileNotFound(t *testing.T) {
 	_, err := LoadLogsourceMap("/nonexistent/path.yaml")
 	if err == nil {
 		t.Error("expected error for nonexistent file")
+	}
+}
+
+// --- NDR logsource mapping tests ---
+
+func TestResolveProductSentinelNDR(t *testing.T) {
+	lm := loadTestMap(t)
+	conds := lm.Resolve("", "sentinel_ndr", "")
+	if conds == nil {
+		t.Fatal("expected conditions for product: sentinel_ndr")
+	}
+	if conds["source_type"] != "sentinel_ndr" {
+		t.Errorf("source_type = %q, want sentinel_ndr", conds["source_type"])
+	}
+}
+
+func TestResolveCategoryDNS(t *testing.T) {
+	lm := loadTestMap(t)
+	conds := lm.Resolve("dns", "", "")
+	if conds == nil {
+		t.Fatal("expected conditions for category: dns")
+	}
+	if conds["event.category"] != "network" {
+		t.Errorf("event.category = %q, want network", conds["event.category"])
+	}
+	if conds["event.action"] != "dns_query" {
+		t.Errorf("event.action = %q, want dns_query", conds["event.action"])
+	}
+}
+
+func TestResolveCategoryIDS(t *testing.T) {
+	lm := loadTestMap(t)
+	conds := lm.Resolve("ids", "", "")
+	if conds == nil {
+		t.Fatal("expected conditions for category: ids")
+	}
+	if conds["event.category"] != "intrusion_detection" {
+		t.Errorf("event.category = %q, want intrusion_detection", conds["event.category"])
+	}
+}
+
+func TestResolveCategoryAuthentication(t *testing.T) {
+	lm := loadTestMap(t)
+	conds := lm.Resolve("authentication", "", "")
+	if conds == nil {
+		t.Fatal("expected conditions for category: authentication")
+	}
+	if conds["event.category"] != "authentication" {
+		t.Errorf("event.category = %q, want authentication", conds["event.category"])
+	}
+}
+
+func TestMatchesNDRSessionEvent(t *testing.T) {
+	lm := loadTestMap(t)
+
+	ndrSession := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "sentinel_ndr",
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"network_connection"},
+			Type:     []string{"connection"},
+			Action:   "session",
+		},
+	}
+
+	// Should match product: sentinel_ndr.
+	ndrConds := lm.Resolve("", "sentinel_ndr", "")
+	if !MatchesEvent(ndrConds, ndrSession) {
+		t.Error("NDR session should match product: sentinel_ndr")
+	}
+
+	// Should NOT match product: sentineledr.
+	edrConds := lm.Resolve("", "sentineledr", "")
+	if MatchesEvent(edrConds, ndrSession) {
+		t.Error("NDR session should NOT match product: sentineledr")
+	}
+}
+
+func TestMatchesNDRDNSEventDualLogsource(t *testing.T) {
+	// The key acceptance criteria: ndr:dns events match BOTH
+	// product:sentinel_ndr AND category:dns.
+	lm := loadTestMap(t)
+
+	ndrDNS := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "sentinel_ndr",
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"network"},
+			Type:     []string{"protocol"},
+			Action:   "dns_query",
+		},
+		DNS: &common.DNSFields{
+			Question: &common.DNSQuestion{
+				Name: "malicious.example.com",
+				Type: "A",
+			},
+		},
+	}
+
+	// Should match product: sentinel_ndr (by source_type).
+	ndrConds := lm.Resolve("", "sentinel_ndr", "")
+	if !MatchesEvent(ndrConds, ndrDNS) {
+		t.Error("NDR DNS event should match product: sentinel_ndr")
+	}
+
+	// Should ALSO match category: dns (by event.category + event.action).
+	dnsConds := lm.Resolve("dns", "", "")
+	if !MatchesEvent(dnsConds, ndrDNS) {
+		t.Error("NDR DNS event should match category: dns (dual logsource)")
+	}
+}
+
+func TestMatchesNDRDetectionEvent(t *testing.T) {
+	lm := loadTestMap(t)
+
+	ndrDetection := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "sentinel_ndr",
+		Event: &common.EventFields{
+			Kind:     "alert",
+			Category: []string{"intrusion_detection"},
+			Type:     []string{"info"},
+			Action:   "detection",
+		},
+		NDR: &common.NDRFields{
+			Detection: &common.NDRDetection{
+				Name:     "C2 Beacon",
+				Severity: 8,
+			},
+		},
+	}
+
+	// Should match product: sentinel_ndr.
+	ndrConds := lm.Resolve("", "sentinel_ndr", "")
+	if !MatchesEvent(ndrConds, ndrDetection) {
+		t.Error("NDR detection should match product: sentinel_ndr")
+	}
+
+	// Should match category: ids.
+	idsConds := lm.Resolve("ids", "", "")
+	if !MatchesEvent(idsConds, ndrDetection) {
+		t.Error("NDR detection should match category: ids")
+	}
+}
+
+func TestMatchesNDRKerberosAuthCategory(t *testing.T) {
+	lm := loadTestMap(t)
+
+	ndrKerb := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "sentinel_ndr",
+		Event: &common.EventFields{
+			Kind:     "event",
+			Category: []string{"network", "authentication"},
+			Type:     []string{"protocol"},
+			Action:   "kerberos",
+		},
+	}
+
+	// Should match category: authentication.
+	authConds := lm.Resolve("authentication", "", "")
+	if !MatchesEvent(authConds, ndrKerb) {
+		t.Error("NDR Kerberos event should match category: authentication")
+	}
+}
+
+func TestMatchesNDRFieldEquals(t *testing.T) {
+	// Test the new NDR-specific field matchers.
+	ndrEvent := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "sentinel_ndr",
+		Network: &common.NetworkFields{
+			CommunityID: "1:abc123",
+			Transport:   "tcp",
+		},
+		NDR: &common.NDRFields{
+			Detection: &common.NDRDetection{
+				Name:     "C2 Beacon",
+				Category: "command_and_control",
+			},
+			HostScore: &common.NDRHostScore{
+				Quadrant: "critical",
+			},
+		},
+		DNS: &common.DNSFields{
+			Question: &common.DNSQuestion{
+				Name: "evil.example.com",
+			},
+			ResponseCode: "NOERROR",
+		},
+		TLS: &common.TLSFields{
+			Version: "1.3",
+			Client: &common.TLSClientFields{
+				ServerName: "example.com",
+				JA3:        "abc123def",
+			},
+		},
+		SMB: &common.SMBFields{
+			Action:   "read",
+			Filename: "secrets.docx",
+		},
+		SSH: &common.SSHFields{
+			HASSH: "hassh123",
+		},
+		Process: &common.ProcessFields{
+			Name: "sshd",
+		},
+	}
+
+	tests := []struct {
+		field    string
+		value    string
+		expected bool
+	}{
+		{"network.community_id", "1:abc123", true},
+		{"network.community_id", "1:wrong", false},
+		{"network.transport", "tcp", true},
+		{"network.transport", "udp", false},
+		{"ndr.detection.name", "C2 Beacon", true},
+		{"ndr.detection.name", "Wrong Name", false},
+		{"ndr.detection.category", "command_and_control", true},
+		{"ndr.host_score.quadrant", "critical", true},
+		{"ndr.host_score.quadrant", "low", false},
+		{"dns.question.name", "evil.example.com", true},
+		{"dns.question.name", "safe.example.com", false},
+		{"dns.response_code", "NOERROR", true},
+		{"tls.client.server_name", "example.com", true},
+		{"tls.client.ja3", "abc123def", true},
+		{"tls.version", "1.3", true},
+		{"tls.version", "1.2", false},
+		{"smb.action", "read", true},
+		{"smb.filename", "secrets.docx", true},
+		{"ssh.hassh", "hassh123", true},
+		{"ssh.hassh", "wrong", false},
+		{"process.name", "sshd", true},
+		{"process.name", "nginx", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.field+"="+tc.value, func(t *testing.T) {
+			conds := map[string]string{tc.field: tc.value}
+			got := MatchesEvent(conds, ndrEvent)
+			if got != tc.expected {
+				t.Errorf("MatchesEvent(%q=%q) = %v, want %v", tc.field, tc.value, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestMatchesNDRFieldEqualsNilStructs(t *testing.T) {
+	// Ensure nil NDR structs don't panic.
+	emptyEvent := &common.ECSEvent{
+		Timestamp: time.Now().UTC(),
+	}
+
+	nilTests := []string{
+		"network.community_id",
+		"ndr.detection.name",
+		"ndr.host_score.quadrant",
+		"dns.question.name",
+		"tls.client.server_name",
+		"smb.action",
+		"ssh.hassh",
+		"process.name",
+	}
+
+	for _, field := range nilTests {
+		t.Run("nil_"+field, func(t *testing.T) {
+			conds := map[string]string{field: "anything"}
+			if MatchesEvent(conds, emptyEvent) {
+				t.Errorf("MatchesEvent with nil struct should return false for %q", field)
+			}
+		})
+	}
+}
+
+func TestNDRDNSDoesNotMatchSyslog(t *testing.T) {
+	// Ensure category:dns does NOT match a syslog event that happens to be network-related
+	// but doesn't have event.action: dns_query.
+	lm := loadTestMap(t)
+
+	syslogNetworkEvent := &common.ECSEvent{
+		Timestamp:  time.Now().UTC(),
+		SourceType: "syslog",
+		Event: &common.EventFields{
+			Category: []string{"network"},
+			Type:     []string{"connection"},
+			Action:   "firewall_drop",
+		},
+	}
+
+	dnsConds := lm.Resolve("dns", "", "")
+	if MatchesEvent(dnsConds, syslogNetworkEvent) {
+		t.Error("syslog firewall event should NOT match category: dns")
 	}
 }
