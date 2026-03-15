@@ -70,7 +70,23 @@ func NewHTTPListener(cfg config.IngestConfig, handler EventHandler) *HTTPListene
 	l.router.Post("/api/v1/ingest", l.handleIngest)
 	l.router.Get("/api/v1/health", l.handleHealth)
 
+	// WEF collector — shares auth and handler with main ingest endpoint.
+	wef := NewWEFCollector(handler)
+	l.router.Post("/api/v1/ingest/wef", l.withAuth(wef.HandleWEF))
+
 	return l
+}
+
+// withAuth wraps a handler with API key authentication.
+func (l *HTTPListener) withAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := r.Header.Get("X-API-Key")
+		if key == "" || !l.apiKeys[key] {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // Router returns the chi router for use with http.Server.
