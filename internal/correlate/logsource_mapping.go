@@ -187,6 +187,48 @@ func eventFieldEquals(event *common.ECSEvent, field, expected string) bool {
 		// Will be implemented in Phase 2.
 		return false
 
+	// process.* fields
+	case "process.name":
+		return event.Process != nil && event.Process.Name == expected
+
+	// network.community_id for cross-source correlation
+	case "network.community_id":
+		return event.Network != nil && event.Network.CommunityID == expected
+	case "network.transport":
+		return event.Network != nil && event.Network.Transport == expected
+
+	// ndr.* fields
+	case "ndr.detection.name":
+		return event.NDR != nil && event.NDR.Detection != nil && event.NDR.Detection.Name == expected
+	case "ndr.detection.category":
+		return event.NDR != nil && event.NDR.Detection != nil && event.NDR.Detection.Category == expected
+	case "ndr.host_score.quadrant":
+		return event.NDR != nil && event.NDR.HostScore != nil && event.NDR.HostScore.Quadrant == expected
+
+	// dns.* fields
+	case "dns.question.name":
+		return event.DNS != nil && event.DNS.Question != nil && event.DNS.Question.Name == expected
+	case "dns.response_code":
+		return event.DNS != nil && event.DNS.ResponseCode == expected
+
+	// tls.* fields
+	case "tls.client.server_name":
+		return event.TLS != nil && event.TLS.Client != nil && event.TLS.Client.ServerName == expected
+	case "tls.client.ja3":
+		return event.TLS != nil && event.TLS.Client != nil && event.TLS.Client.JA3 == expected
+	case "tls.version":
+		return event.TLS != nil && event.TLS.Version == expected
+
+	// smb.* fields
+	case "smb.action":
+		return event.SMB != nil && event.SMB.Action == expected
+	case "smb.filename":
+		return event.SMB != nil && event.SMB.Filename == expected
+
+	// ssh.* fields
+	case "ssh.hassh":
+		return event.SSH != nil && event.SSH.HASSH == expected
+
 	default:
 		// Unknown field — no match.
 		return false
