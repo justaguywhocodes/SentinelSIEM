@@ -9,9 +9,9 @@ import (
 )
 
 // Parser normalizes a raw event into an ECS event.
-// Each source type (SentinelEDR, AV, DLP, WinEvt, Syslog) implements this interface.
+// Each source type (sentinel_edr, AV, DLP, WinEvt, Syslog) implements this interface.
 type Parser interface {
-	// SourceType returns the source_type string this parser handles (e.g., "sentineledr").
+	// SourceType returns the source_type string this parser handles (e.g., "sentinel_edr").
 	SourceType() string
 
 	// Parse normalizes a raw event JSON into an ECSEvent.

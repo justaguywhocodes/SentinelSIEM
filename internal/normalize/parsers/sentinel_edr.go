@@ -10,18 +10,18 @@ import (
 	"github.com/SentinelSIEM/sentinel-siem/internal/common"
 )
 
-// SentinelEDRParser normalizes SENTINEL_EVENT JSON from the SentinelEDR agent
+// sentinel_edrParser normalizes SENTINEL_EVENT JSON from the sentinel_edr agent
 // into ECS events. Events arrive wrapped in the sentinel/v1 SIEM envelope.
-type SentinelEDRParser struct{}
+type sentinel_edrParser struct{}
 
-// NewSentinelEDRParser creates a new SentinelEDR parser.
-func NewSentinelEDRParser() *SentinelEDRParser {
-	return &SentinelEDRParser{}
+// Newsentinel_edrParser creates a new sentinel_edr parser.
+func Newsentinel_edrParser() *sentinel_edrParser {
+	return &sentinel_edrParser{}
 }
 
 // SourceType returns the source_type this parser handles.
-func (p *SentinelEDRParser) SourceType() string {
-	return "sentineledr"
+func (p *sentinel_edrParser) SourceType() string {
+	return "sentinel_edr"
 }
 
 // --- SIEM envelope (outer wrapper from siem_serializer.cpp) ---
@@ -205,18 +205,18 @@ type tamperPayload struct {
 	Detail     string `json:"detail"`
 }
 
-// Parse normalizes a raw SentinelEDR JSON event into an ECSEvent.
-func (p *SentinelEDRParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
+// Parse normalizes a raw sentinel_edr JSON event into an ECSEvent.
+func (p *sentinel_edrParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
 	// Unwrap SIEM envelope.
 	var env siemEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, fmt.Errorf("sentineledr: unmarshal envelope: %w", err)
+		return nil, fmt.Errorf("sentinel_edr: unmarshal envelope: %w", err)
 	}
 
 	// Parse inner event.
 	var inner edrEvent
 	if err := json.Unmarshal(env.Event, &inner); err != nil {
-		return nil, fmt.Errorf("sentineledr: unmarshal inner event: %w", err)
+		return nil, fmt.Errorf("sentinel_edr: unmarshal inner event: %w", err)
 	}
 
 	// Build base ECS event with common fields.
@@ -263,7 +263,7 @@ func (p *SentinelEDRParser) Parse(raw json.RawMessage) (*common.ECSEvent, error)
 }
 
 // buildBase creates an ECSEvent with common fields populated from the envelope and inner event.
-func (p *SentinelEDRParser) buildBase(env *siemEnvelope, inner *edrEvent) *common.ECSEvent {
+func (p *sentinel_edrParser) buildBase(env *siemEnvelope, inner *edrEvent) *common.ECSEvent {
 	ts := parseTimestamp(env.Timestamp)
 
 	ecs := &common.ECSEvent{
@@ -305,7 +305,7 @@ func (p *SentinelEDRParser) buildBase(env *siemEnvelope, inner *edrEvent) *commo
 
 // --- Source-specific mappers ---
 
-func (p *SentinelEDRParser) mapProcess(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapProcess(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl processPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -335,7 +335,7 @@ func (p *SentinelEDRParser) mapProcess(ecs *common.ECSEvent, payload json.RawMes
 	}
 }
 
-func (p *SentinelEDRParser) mapThread(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapThread(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl threadPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -355,7 +355,7 @@ func (p *SentinelEDRParser) mapThread(ecs *common.ECSEvent, payload json.RawMess
 	}
 }
 
-func (p *SentinelEDRParser) mapObject(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapObject(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl objectPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -366,7 +366,7 @@ func (p *SentinelEDRParser) mapObject(ecs *common.ECSEvent, payload json.RawMess
 	ecs.Event.Action = "object_handle_" + strings.ToLower(pl.Operation)
 }
 
-func (p *SentinelEDRParser) mapImageLoad(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapImageLoad(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl imageLoadPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -384,7 +384,7 @@ func (p *SentinelEDRParser) mapImageLoad(ecs *common.ECSEvent, payload json.RawM
 	}
 }
 
-func (p *SentinelEDRParser) mapRegistry(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapRegistry(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl registryPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -408,7 +408,7 @@ func (p *SentinelEDRParser) mapRegistry(ecs *common.ECSEvent, payload json.RawMe
 	}
 }
 
-func (p *SentinelEDRParser) mapFile(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapFile(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl filePayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -444,7 +444,7 @@ func (p *SentinelEDRParser) mapFile(ecs *common.ECSEvent, payload json.RawMessag
 	}
 }
 
-func (p *SentinelEDRParser) mapPipe(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapPipe(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl pipePayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -459,7 +459,7 @@ func (p *SentinelEDRParser) mapPipe(ecs *common.ECSEvent, payload json.RawMessag
 	}
 }
 
-func (p *SentinelEDRParser) mapNetwork(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapNetwork(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl networkPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -492,7 +492,7 @@ func (p *SentinelEDRParser) mapNetwork(ecs *common.ECSEvent, payload json.RawMes
 	}
 }
 
-func (p *SentinelEDRParser) mapHook(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapHook(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl hookPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -503,7 +503,7 @@ func (p *SentinelEDRParser) mapHook(ecs *common.ECSEvent, payload json.RawMessag
 	ecs.Event.Action = pl.Function
 }
 
-func (p *SentinelEDRParser) mapETW(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapETW(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl etwPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -553,7 +553,7 @@ func (p *SentinelEDRParser) mapETW(ecs *common.ECSEvent, payload json.RawMessage
 	}
 }
 
-func (p *SentinelEDRParser) mapAMSI(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapAMSI(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl amsiPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -573,7 +573,7 @@ func (p *SentinelEDRParser) mapAMSI(ecs *common.ECSEvent, payload json.RawMessag
 	}
 }
 
-func (p *SentinelEDRParser) mapScanner(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapScanner(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl scannerPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -602,7 +602,7 @@ func (p *SentinelEDRParser) mapScanner(ecs *common.ECSEvent, payload json.RawMes
 	}
 }
 
-func (p *SentinelEDRParser) mapAlert(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapAlert(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl alertPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return
@@ -619,7 +619,7 @@ func (p *SentinelEDRParser) mapAlert(ecs *common.ECSEvent, payload json.RawMessa
 	}
 }
 
-func (p *SentinelEDRParser) mapTamper(ecs *common.ECSEvent, payload json.RawMessage) {
+func (p *sentinel_edrParser) mapTamper(ecs *common.ECSEvent, payload json.RawMessage) {
 	var pl tamperPayload
 	if err := json.Unmarshal(payload, &pl); err != nil {
 		return

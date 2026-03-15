@@ -332,4 +332,4 @@ func (p *SentinelAVParser) mapScanError(event *common.ECSEvent, payload json.Raw
 	return nil
 }
 
-// fileNameFromPath is defined in sentineledr.go (shared within the package).
+// fileNameFromPath is defined in sentinel_edr.go (shared within the package).

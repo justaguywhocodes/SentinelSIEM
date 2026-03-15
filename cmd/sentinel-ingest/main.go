@@ -29,7 +29,7 @@ func main() {
 
 	// Initialize parser registry with all known parsers.
 	registry := normalize.NewRegistry()
-	registry.Register(parsers.NewSentinelEDRParser())
+	registry.Register(parsers.Newsentinel_edrParser())
 	registry.Register(parsers.NewSentinelNDRParser())
 	registry.Register(parsers.NewWinEvtXMLParser())
 	registry.Register(parsers.NewWinEvtJSONParser())

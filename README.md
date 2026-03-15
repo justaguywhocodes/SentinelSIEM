@@ -23,7 +23,7 @@ SentinelSIEM ingests telemetry from multiple security sources, normalizes events
 
 | Source | Protocol | Status | Description |
 |--------|----------|--------|-------------|
-| SentinelEDR | JSON/HTTP | Implemented | Endpoint behavior telemetry (process, network, registry, file events) |
+| sentinel_edr | JSON/HTTP | Implemented | Endpoint behavior telemetry (process, network, registry, file events) |
 | Sentinel AV | JSON/HTTP | Implemented | Malware scan results, quarantine actions, real-time blocks |
 | Sentinel DLP | JSON/HTTP | Implemented | Data classification, policy violations, removable media events |
 | Windows Event Logs | WEF/HTTP | Implemented | Security, Sysmon, and system events via XML or Winlogbeat JSON |
@@ -52,7 +52,7 @@ Built-in incident response workflow: alert escalation, observable extraction (IP
 ## Architecture
 
 ```
-[SentinelEDR]  ─┐
+[sentinel_edr]  ─┐
 [Sentinel AV]  ─┤
 [Sentinel DLP] ─┤─→ [sentinel-ingest] → [sentinel-normalize] → [sentinel-store (ES)]
 [Windows WEF]  ─┤                                ↓
@@ -147,7 +147,7 @@ make run-query                # Start query API + dashboard
 | Phase | Description | Tasks | Depends On | Status |
 |-------|-------------|-------|------------|--------|
 | P0 | Scaffolding — Go module, Docker Compose, ECS structs, config, ES client | 5 | — | Complete |
-| P1 | HTTP Ingestion + SentinelEDR Parser | 4 | P0 | Complete |
+| P1 | HTTP Ingestion + sentinel_edr Parser | 4 | P0 | Complete |
 | P1a | Sentinel AV & DLP Parsers + Cross-Portfolio Rules | 4 | P1 | Complete |
 | P2 | Windows Event Log Ingestion (XML + Winlogbeat JSON) | 4 | P1 | Complete |
 | P3 | Syslog Ingestion (TCP/UDP/TLS, RFC 5424 & 3164) | 4 | P1 | Complete |

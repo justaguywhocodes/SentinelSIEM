@@ -16,7 +16,7 @@ title: Test Rule
 id: 12345678-1234-1234-1234-123456789abc
 status: experimental
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: process_create
@@ -44,7 +44,7 @@ level: medium
 	if r.Level != "medium" {
 		t.Errorf("level = %q", r.Level)
 	}
-	if r.Logsource.Product != "sentineledr" {
+	if r.Logsource.Product != "sentinel_edr" {
 		t.Errorf("product = %q", r.Logsource.Product)
 	}
 	if r.Detection == nil {
@@ -147,7 +147,7 @@ title: Component Rule 1
 id: 11111111-1111-1111-1111-111111111111
 status: experimental
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: process_create
@@ -251,7 +251,7 @@ func TestParseMultipleFieldsAND(t *testing.T) {
 title: Multi Field AND
 id: 00000000-0000-0000-0000-000000000001
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: process_create
@@ -278,7 +278,7 @@ func TestParseListValuesOR(t *testing.T) {
 title: List Values OR
 id: 00000000-0000-0000-0000-000000000002
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action:
@@ -307,7 +307,7 @@ func TestParseModifiers(t *testing.T) {
 title: Modifier Test
 id: 00000000-0000-0000-0000-000000000003
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|contains:
@@ -362,7 +362,7 @@ func TestParseMultipleSelections(t *testing.T) {
 title: Selection with Filter
 id: 00000000-0000-0000-0000-000000000004
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.category: network
@@ -414,7 +414,7 @@ func TestParseSelectionListOfMaps(t *testing.T) {
 title: List of Maps (OR of ANDs)
 id: 00000000-0000-0000-0000-000000000005
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     - event.action: foo
@@ -446,7 +446,7 @@ func TestParseMissingCondition(t *testing.T) {
 title: No Condition
 id: 00000000-0000-0000-0000-000000000010
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: process_create
@@ -464,7 +464,7 @@ func TestParseEmptyDocument(t *testing.T) {
 title: After Empty
 id: 00000000-0000-0000-0000-000000000011
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -599,7 +599,7 @@ func TestParseDeepFieldNames(t *testing.T) {
 title: Deep Fields
 id: 00000000-0000-0000-0000-000000000016
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     process.parent.name: explorer.exe
@@ -720,7 +720,7 @@ func TestLoadRulesFromDir(t *testing.T) {
 title: Valid Rule
 id: 00000000-0000-0000-0000-000000000020
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -732,7 +732,7 @@ detection:
 title: Multi Rule 1
 id: 00000000-0000-0000-0000-000000000021
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -776,7 +776,7 @@ func TestLoadRulesFromDirNested(t *testing.T) {
 title: Top Level
 id: 00000000-0000-0000-0000-000000000030
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test

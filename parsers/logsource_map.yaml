@@ -15,11 +15,11 @@ mappings:
   # Sentinel Portfolio — Product-Level Mappings
   # ============================================================
 
-  # SentinelEDR: endpoint detection and response telemetry
+  # sentinel_edr: endpoint detection and response telemetry
   - logsource:
-      product: sentineledr
+      product: sentinel_edr
     conditions:
-      source_type: sentineledr
+      source_type: sentinel_edr
 
   # Sentinel AV: antivirus scan, quarantine, and block events
   - logsource:

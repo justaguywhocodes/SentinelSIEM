@@ -17,9 +17,9 @@ func testEngineLogsourceMap(t *testing.T) *LogsourceMap {
 	yamlData := `
 mappings:
   - logsource:
-      product: sentineledr
+      product: sentinel_edr
     conditions:
-      source_type: sentineledr
+      source_type: sentinel_edr
   - logsource:
       product: sentinel_av
     conditions:
@@ -88,7 +88,7 @@ func TestRuleEngine_SingleRuleMatch(t *testing.T) {
 title: EDR Alert Detection
 id: test-rule-001
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -100,7 +100,7 @@ tags:
 	engine := NewRuleEngine(registry, testEngineLogsourceMap(t))
 
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "scanner_match"},
 	}
 	alerts := engine.Evaluate(event)
@@ -129,7 +129,7 @@ func TestRuleEngine_SingleRuleNoMatch_WrongLogsource(t *testing.T) {
 title: EDR Alert Detection
 id: test-rule-001
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -154,7 +154,7 @@ func TestRuleEngine_MultipleRules_SameLogsource(t *testing.T) {
 title: EDR Rule A
 id: test-rule-a
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -164,7 +164,7 @@ level: high
 title: EDR Rule B
 id: test-rule-b
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: rule_engine_alert
@@ -175,7 +175,7 @@ level: medium
 
 	// Only rule A should match.
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "scanner_match"},
 	}
 	alerts := engine.Evaluate(event)
@@ -192,7 +192,7 @@ func TestRuleEngine_MultipleRules_DifferentLogsources(t *testing.T) {
 title: EDR Rule
 id: edr-rule
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -243,7 +243,7 @@ level: medium
 
 	// EDR process creation event.
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Category: []string{"process"}, Type: []string{"start"}},
 		Process:    &common.ProcessFields{Name: "powershell.exe"},
 	}
@@ -257,7 +257,7 @@ level: medium
 
 	// Non-process-creation event should not match.
 	event2 := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Category: []string{"network"}, Type: []string{"connection"}},
 		Process:    &common.ProcessFields{Name: "powershell.exe"},
 	}
@@ -316,7 +316,7 @@ func TestRuleEngine_InvalidRegexSkipped(t *testing.T) {
 title: Bad Regex Rule
 id: bad-regex
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|re: "[invalid"
@@ -344,7 +344,7 @@ func TestRuleEngine_EmptyRegistry(t *testing.T) {
 	}
 
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "test"},
 	}
 	alerts := engine.Evaluate(event)
@@ -358,7 +358,7 @@ func TestRuleEngine_CorrelationRulesExcluded(t *testing.T) {
 title: EDR Behavioral Detection
 id: edr-behavioral
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|contains: scanner_match
@@ -407,7 +407,7 @@ func TestRuleEngine_NilEvent(t *testing.T) {
 title: Test Rule
 id: test-nil
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -427,7 +427,7 @@ func TestRuleEngine_EmptyEvent(t *testing.T) {
 title: Test Rule
 id: test-empty
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -448,7 +448,7 @@ func TestRuleEngine_LogsourceMatchButDetectionMiss(t *testing.T) {
 title: EDR Specific Detection
 id: edr-specific
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: very_specific_action
@@ -459,7 +459,7 @@ level: medium
 
 	// EDR event with different action — logsource matches but detection doesn't.
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "different_action"},
 	}
 	alerts := engine.Evaluate(event)
@@ -494,7 +494,7 @@ func TestRuleEngine_WildcardLogsource(t *testing.T) {
 	}
 
 	// Any source type should match.
-	for _, srcType := range []string{"sentineledr", "sentinel_av", "unknown"} {
+	for _, srcType := range []string{"sentinel_edr", "sentinel_av", "unknown"} {
 		event := &common.ECSEvent{
 			SourceType: srcType,
 			Event:      &common.EventFields{Action: "universal_action"},
@@ -507,7 +507,7 @@ func TestRuleEngine_WildcardLogsource(t *testing.T) {
 
 	// Detection miss should still not fire.
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "other_action"},
 	}
 	alerts := engine.Evaluate(event)
@@ -523,7 +523,7 @@ func TestRuleEngine_Stats(t *testing.T) {
 title: Good Rule
 id: good-rule
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: test
@@ -533,7 +533,7 @@ level: medium
 title: Bad Regex Rule
 id: bad-regex
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|re: "[invalid"
@@ -611,7 +611,7 @@ func TestRuleEngine_ProjectRules(t *testing.T) {
 
 	// Test: EDR behavioral event should trigger at least one EDR rule.
 	edrEvent := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Action: "scanner_match_detected",
 			Kind:   "alert",
@@ -649,7 +649,7 @@ func TestRuleEngine_ProjectRules(t *testing.T) {
 
 	// Test: Unrelated event should not trigger any rules.
 	benignEvent := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "totally_normal_activity"},
 	}
 	benignAlerts := engine.Evaluate(benignEvent)
@@ -668,7 +668,7 @@ func TestRuleEngine_ConcurrentEvaluate(t *testing.T) {
 title: EDR Concurrent Test
 id: concurrent-edr
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|contains: scanner
@@ -702,7 +702,7 @@ level: critical
 			// Half send EDR events, half send AV events.
 			if idx%2 == 0 {
 				event := &common.ECSEvent{
-					SourceType: "sentineledr",
+					SourceType: "sentinel_edr",
 					Event:      &common.EventFields{Action: "scanner_match"},
 				}
 				alerts := engine.Evaluate(event)
@@ -740,7 +740,7 @@ func TestRuleEngine_EvaluateConcurrent(t *testing.T) {
 title: EDR Batch Test
 id: batch-edr
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -753,12 +753,12 @@ level: high
 	for i := range events {
 		if i%2 == 0 {
 			events[i] = &common.ECSEvent{
-				SourceType: "sentineledr",
+				SourceType: "sentinel_edr",
 				Event:      &common.EventFields{Action: "scanner_match"},
 			}
 		} else {
 			events[i] = &common.ECSEvent{
-				SourceType: "sentineledr",
+				SourceType: "sentinel_edr",
 				Event:      &common.EventFields{Action: "other"},
 			}
 		}
@@ -804,7 +804,7 @@ level: medium
 
 	// Sysmon rules should NOT fire for EDR events.
 	edrEvent := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Process:    &common.ProcessFields{Name: "powershell.exe"},
 	}
 	if alerts := engine.Evaluate(edrEvent); len(alerts) != 0 {
@@ -820,7 +820,7 @@ func TestRuleEngine_EDROnlyFiresForEDR(t *testing.T) {
 title: EDR Alert
 id: edr-only
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action: scanner_match
@@ -849,7 +849,7 @@ level: high
 
 	// Should fire for EDR events.
 	edrEvent := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "scanner_match"},
 	}
 	if alerts := engine.Evaluate(edrEvent); len(alerts) != 1 {
@@ -863,7 +863,7 @@ func BenchmarkRuleEngine_Evaluate_MultiBucket(b *testing.B) {
 	// Build 20 rules across 4 logsource buckets.
 	var yamlParts []string
 	for i := 0; i < 5; i++ {
-		yamlParts = append(yamlParts, buildBenchRule("sentineledr", i))
+		yamlParts = append(yamlParts, buildBenchRule("sentinel_edr", i))
 	}
 	for i := 0; i < 5; i++ {
 		yamlParts = append(yamlParts, buildBenchRule("sentinel_av", i))
@@ -884,9 +884,9 @@ func BenchmarkRuleEngine_Evaluate_MultiBucket(b *testing.B) {
 	lsMap, _ := ParseLogsourceMap([]byte(`
 mappings:
   - logsource:
-      product: sentineledr
+      product: sentinel_edr
     conditions:
-      source_type: sentineledr
+      source_type: sentinel_edr
   - logsource:
       product: sentinel_av
     conditions:
@@ -905,7 +905,7 @@ mappings:
 	engine := NewRuleEngine(registry, lsMap)
 
 	event := &common.ECSEvent{
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event:      &common.EventFields{Action: "action_2"},
 	}
 

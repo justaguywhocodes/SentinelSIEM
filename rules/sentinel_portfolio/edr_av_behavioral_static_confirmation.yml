@@ -2,7 +2,7 @@ title: EDR + AV - Behavioral Detection Confirmed by Static Analysis
 id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
 status: experimental
 description: |
-  Correlates SentinelEDR behavioral detections (shellcode injection, suspicious
+  Correlates sentinel_edr behavioral detections (shellcode injection, suspicious
   process behavior) with Sentinel AV static scan results on the same host.
   When both the EDR rule engine and AV scanner independently flag activity on
   the same host within 5 minutes, confidence is significantly higher than
@@ -31,7 +31,7 @@ title: EDR Behavioral Detection
 id: a1b2c3d4-e5f6-4a7b-8c9d-000000000001
 status: experimental
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|contains:

@@ -835,7 +835,7 @@ title: EDR Behavioral Detection
 id: a1b2c3d4-e5f6-4a7b-8c9d-000000000001
 status: experimental
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.action|contains:
@@ -888,7 +888,7 @@ title: EDR Outbound Data Transfer
 id: e5f6a7b8-c9d0-4e1f-2a3b-000000000004
 status: experimental
 logsource:
-  product: sentineledr
+  product: sentinel_edr
 detection:
   selection:
     event.category: network

@@ -29,7 +29,7 @@ func makeEDREvent(source, severity string, payload map[string]any) json.RawMessa
 
 	envelope := map[string]any{
 		"schema":      "sentinel/v1",
-		"source_type": "sentineledr",
+		"source_type": "sentinel_edr",
 		"host":        "WORKSTATION-01",
 		"agent_id":    "agent-abc-123",
 		"timestamp":   "2026-03-14T12:00:00Z",
@@ -41,14 +41,14 @@ func makeEDREvent(source, severity string, payload map[string]any) json.RawMessa
 }
 
 func TestSourceType(t *testing.T) {
-	p := NewSentinelEDRParser()
-	if got := p.SourceType(); got != "sentineledr" {
-		t.Fatalf("SourceType() = %q, want %q", got, "sentineledr")
+	p := Newsentinel_edrParser()
+	if got := p.SourceType(); got != "sentinel_edr" {
+		t.Fatalf("SourceType() = %q, want %q", got, "sentinel_edr")
 	}
 }
 
 func TestCommonFields(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverProcess", "Medium", map[string]any{
 		"isCreate":        true,
 		"newProcessId":    9999,
@@ -87,7 +87,7 @@ func TestCommonFields(t *testing.T) {
 }
 
 func TestProcessCreate(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverProcess", "Low", map[string]any{
 		"isCreate":        true,
 		"newProcessId":    9999,
@@ -114,7 +114,7 @@ func TestProcessCreate(t *testing.T) {
 }
 
 func TestProcessTerminate(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverProcess", "Informational", map[string]any{
 		"isCreate":   false,
 		"exitStatus": "0x00000000",
@@ -132,7 +132,7 @@ func TestProcessTerminate(t *testing.T) {
 }
 
 func TestThreadRemote(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverThread", "High", map[string]any{
 		"isCreate":          true,
 		"threadId":          200,
@@ -154,7 +154,7 @@ func TestThreadRemote(t *testing.T) {
 }
 
 func TestThreadLocal(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverThread", "Informational", map[string]any{
 		"isCreate":          true,
 		"threadId":          200,
@@ -173,7 +173,7 @@ func TestThreadLocal(t *testing.T) {
 }
 
 func TestObjectHandle(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverObject", "High", map[string]any{
 		"operation":       "Create",
 		"objectType":      "Process",
@@ -195,7 +195,7 @@ func TestObjectHandle(t *testing.T) {
 }
 
 func TestImageLoad(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverImageLoad", "Informational", map[string]any{
 		"processId":        1234,
 		"imagePath":        `C:\Windows\System32\ntdll.dll`,
@@ -222,7 +222,7 @@ func TestImageLoad(t *testing.T) {
 }
 
 func TestRegistrySetValue(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverRegistry", "Medium", map[string]any{
 		"operation": "SetValue",
 		"keyPath":   `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`,
@@ -247,7 +247,7 @@ func TestRegistrySetValue(t *testing.T) {
 }
 
 func TestRegistryCreateKey(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverRegistry", "Low", map[string]any{
 		"operation": "CreateKey",
 		"keyPath":   `HKLM\SOFTWARE\TestKey`,
@@ -262,7 +262,7 @@ func TestRegistryCreateKey(t *testing.T) {
 }
 
 func TestRegistryDeleteKey(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverRegistry", "Low", map[string]any{
 		"operation": "DeleteKey",
 		"keyPath":   `HKLM\SOFTWARE\TestKey`,
@@ -277,7 +277,7 @@ func TestRegistryDeleteKey(t *testing.T) {
 }
 
 func TestFileCreate(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverMinifilter", "Medium", map[string]any{
 		"operation": "Create",
 		"processId": 1234,
@@ -307,7 +307,7 @@ func TestFileCreate(t *testing.T) {
 }
 
 func TestFileNoHash(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverMinifilter", "Informational", map[string]any{
 		"operation":   "Write",
 		"processId":   1234,
@@ -327,7 +327,7 @@ func TestFileNoHash(t *testing.T) {
 }
 
 func TestNamedPipe(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverPipe", "High", map[string]any{
 		"pipeName":          `\Device\NamedPipe\msagent_47`,
 		"creatingProcessId": 1234,
@@ -350,7 +350,7 @@ func TestNamedPipe(t *testing.T) {
 }
 
 func TestNetworkOutbound(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverNetwork", "Medium", map[string]any{
 		"direction":  "Outbound",
 		"processId":  1234,
@@ -387,7 +387,7 @@ func TestNetworkOutbound(t *testing.T) {
 }
 
 func TestNetworkUDP(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverNetwork", "Informational", map[string]any{
 		"direction":  "Outbound",
 		"processId":  1234,
@@ -407,7 +407,7 @@ func TestNetworkUDP(t *testing.T) {
 }
 
 func TestHookDll(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("HookDll", "Medium", map[string]any{
 		"function":      "NtProtectVirtualMemory",
 		"targetPid":     1234,
@@ -431,7 +431,7 @@ func TestHookDll(t *testing.T) {
 }
 
 func TestETWDnsClient(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Etw", "Informational", map[string]any{
 		"provider":    "DnsClient",
 		"eventId":     3018,
@@ -459,7 +459,7 @@ func TestETWDnsClient(t *testing.T) {
 }
 
 func TestETWDotNET(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Etw", "Medium", map[string]any{
 		"provider":     "DotNETRuntime",
 		"eventId":      152,
@@ -479,7 +479,7 @@ func TestETWDotNET(t *testing.T) {
 }
 
 func TestETWPowerShell(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Etw", "Medium", map[string]any{
 		"provider":    "PowerShell",
 		"eventId":     4104,
@@ -497,7 +497,7 @@ func TestETWPowerShell(t *testing.T) {
 }
 
 func TestETWKerberos(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Etw", "Medium", map[string]any{
 		"provider":   "Kerberos",
 		"eventId":    14,
@@ -515,7 +515,7 @@ func TestETWKerberos(t *testing.T) {
 }
 
 func TestETWUnknownProvider(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Etw", "Informational", map[string]any{
 		"provider":  "FutureProvider",
 		"eventId":   1,
@@ -532,7 +532,7 @@ func TestETWUnknownProvider(t *testing.T) {
 }
 
 func TestAMSIMalware(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Amsi", "Critical", map[string]any{
 		"appName":     "PowerShell",
 		"contentSize": 4096,
@@ -552,7 +552,7 @@ func TestAMSIMalware(t *testing.T) {
 }
 
 func TestAMSIClean(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Amsi", "Informational", map[string]any{
 		"appName":     "PowerShell",
 		"contentSize": 256,
@@ -568,7 +568,7 @@ func TestAMSIClean(t *testing.T) {
 }
 
 func TestScannerMatch(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Scanner", "High", map[string]any{
 		"scanType":        "OnAccess",
 		"targetPath":      `C:\Users\user\Downloads\malware.exe`,
@@ -594,7 +594,7 @@ func TestScannerMatch(t *testing.T) {
 }
 
 func TestScannerClean(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("Scanner", "Informational", map[string]any{
 		"scanType":   "OnDemand",
 		"targetPath": `C:\Windows\notepad.exe`,
@@ -610,7 +610,7 @@ func TestScannerClean(t *testing.T) {
 }
 
 func TestRuleEngineAlert(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("RuleEngine", "Critical", map[string]any{
 		"ruleName":       "Credential Dumping via lsass Handle",
 		"severity":       "Critical",
@@ -631,7 +631,7 @@ func TestRuleEngineAlert(t *testing.T) {
 }
 
 func TestSelfProtectTamper(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("SelfProtect", "Critical", map[string]any{
 		"tamperType": "HookRemoved",
 		"processId":  1234,
@@ -648,7 +648,7 @@ func TestSelfProtectTamper(t *testing.T) {
 }
 
 func TestUnknownSource(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("FutureSource", "Low", map[string]any{
 		"someField": "someValue",
 	})
@@ -667,7 +667,7 @@ func TestUnknownSource(t *testing.T) {
 }
 
 func TestMissingOptionalFields(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	// Minimal event — no parent image path, sparse payload.
 	inner := map[string]any{
 		"eventId":   "550e8400-e29b-41d4-a716-446655440000",
@@ -685,7 +685,7 @@ func TestMissingOptionalFields(t *testing.T) {
 
 	envelope := map[string]any{
 		"schema":      "sentinel/v1",
-		"source_type": "sentineledr",
+		"source_type": "sentinel_edr",
 		"host":        "HOST-01",
 		"timestamp":   "2026-03-14T12:00:00Z",
 		"event":       inner,
@@ -749,7 +749,7 @@ func TestFileNameFromPath(t *testing.T) {
 }
 
 func TestRoundTripMarshalUnmarshal(t *testing.T) {
-	p := NewSentinelEDRParser()
+	p := Newsentinel_edrParser()
 	raw := makeEDREvent("DriverNetwork", "Medium", map[string]any{
 		"direction":  "Outbound",
 		"processId":  1234,

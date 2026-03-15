@@ -37,7 +37,7 @@ type ECSEvent struct {
 	Observer    *ObserverFields    `json:"observer,omitempty"`
 	Log         *LogFields         `json:"log,omitempty"`
 
-	// SourceType identifies the originating source (e.g., "sentineledr", "sentinel_av").
+	// SourceType identifies the originating source (e.g., "sentinel_edr", "sentinel_av").
 	// Used by the pipeline to route events to the correct ES index.
 	// Not part of ECS — excluded from JSON sent to Elasticsearch.
 	SourceType string `json:"-"`

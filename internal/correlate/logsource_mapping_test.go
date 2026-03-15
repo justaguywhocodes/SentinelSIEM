@@ -11,9 +11,9 @@ import (
 const testLogsourceMap = `
 mappings:
   - logsource:
-      product: sentineledr
+      product: sentinel_edr
     conditions:
-      source_type: sentineledr
+      source_type: sentinel_edr
 
   - logsource:
       product: sentinel_av
@@ -152,14 +152,14 @@ func TestResolveProductSentinelDLP(t *testing.T) {
 	}
 }
 
-func TestResolveProductSentinelEDR(t *testing.T) {
+func TestResolveProductsentinel_edr(t *testing.T) {
 	lm := loadTestMap(t)
-	conds := lm.Resolve("", "sentineledr", "")
+	conds := lm.Resolve("", "sentinel_edr", "")
 	if conds == nil {
-		t.Fatal("expected conditions for product: sentineledr")
+		t.Fatal("expected conditions for product: sentinel_edr")
 	}
-	if conds["source_type"] != "sentineledr" {
-		t.Errorf("source_type = %q, want sentineledr", conds["source_type"])
+	if conds["source_type"] != "sentinel_edr" {
+		t.Errorf("source_type = %q, want sentinel_edr", conds["source_type"])
 	}
 }
 
@@ -283,7 +283,7 @@ func TestMatchesEventEDRMalwareDetection(t *testing.T) {
 
 	edrEvent := &common.ECSEvent{
 		Timestamp:  time.Now().UTC(),
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Kind:     "alert",
 			Category: []string{"malware"},
@@ -343,7 +343,7 @@ func TestMatchesEventProcessCreation(t *testing.T) {
 
 	procEvent := &common.ECSEvent{
 		Timestamp:  time.Now().UTC(),
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Kind:     "event",
 			Category: []string{"process"},
@@ -380,7 +380,7 @@ func TestMatchesEventCrossProductMalware(t *testing.T) {
 
 	edrMalware := &common.ECSEvent{
 		Timestamp:  time.Now().UTC(),
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Category: []string{"malware"},
 			Type:     []string{"info"},
@@ -424,7 +424,7 @@ func TestMatchesEventMultiCategoryEvent(t *testing.T) {
 
 	multiCatEvent := &common.ECSEvent{
 		Timestamp:  time.Now().UTC(),
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Kind:     "event",
 			Category: []string{"process", "malware"},
@@ -500,7 +500,7 @@ mappings:
 	// EDR malware event should NOT match (wrong source_type).
 	edrMalware := &common.ECSEvent{
 		Timestamp:  time.Now().UTC(),
-		SourceType: "sentineledr",
+		SourceType: "sentinel_edr",
 		Event: &common.EventFields{
 			Category: []string{"malware"},
 		},
@@ -622,10 +622,10 @@ func TestMatchesNDRSessionEvent(t *testing.T) {
 		t.Error("NDR session should match product: sentinel_ndr")
 	}
 
-	// Should NOT match product: sentineledr.
-	edrConds := lm.Resolve("", "sentineledr", "")
+	// Should NOT match product: sentinel_edr.
+	edrConds := lm.Resolve("", "sentinel_edr", "")
 	if MatchesEvent(edrConds, ndrSession) {
-		t.Error("NDR session should NOT match product: sentineledr")
+		t.Error("NDR session should NOT match product: sentinel_edr")
 	}
 }
 
