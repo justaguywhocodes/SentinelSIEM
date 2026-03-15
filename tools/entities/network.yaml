@@ -1,0 +1,13 @@
+subnets:
+  user_vlan:
+    cidr: "192.168.1.0/24"
+    gateway: "192.168.1.1"
+  server_vlan:
+    cidr: "10.0.0.0/24"
+    gateway: "10.0.0.1"
+
+dns_servers: ["10.0.0.1", "8.8.8.8"]
+external_ips:
+  c2_server: "198.51.100.50"
+  legitimate_cdn: "151.101.1.140"
+  update_server: "23.45.67.89"

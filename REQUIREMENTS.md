@@ -1,9 +1,11 @@
-# Sentinel SIEM — Requirements Document v2.2
+# Sentinel SIEM — Requirements Document v2.3
 ## A Proof-of-Concept Security Information & Event Management Platform
-**Version 2.2 — Claude Code Implementation Phases | March 2026**
+**Version 2.3 — Claude Code Implementation Phases | March 2026**
 
 Built on Go + Elasticsearch with native Sigma rule support and ECS normalization. Designed to ingest telemetry from sentinel_edr, SentinelAV, SentinelDLP, and SentinelNDR. React-based dashboard with built-in case management and AI-powered investigation assistant.
 
+> **v2.3 Changelog (from v2.2):** Added test data generation infrastructure: static fixture files for all 6 source types (P0-T6), Python scenario generator CLI with 8 attack narratives and noise profiles (P1-T5), full 50K+ event demo dataset with `make demo` validation (P10-T0), deployment automation with `make install`/`make dev`/`make demo`/`make clean` targets (P11-T5). Total: +4 tasks (82 → 86).
+>
 > **v2.2 Changelog (from v2.1):** Added SentinelNDR as ingestion source (Section 4.7), added `ndr.*`/`dns.*`/`tls.*`/`smb.*`/`kerberos.*`/`ssh.*` ECS extension fields (Section 3.3), added 5 NDR cross-portfolio Sigma correlation rules (Section 5.3), added Phase 1b for NDR parser implementation (5 tasks), updated Phase 10 integration tests for 6 source types (2 new tasks), updated AI assistant tools and capabilities for NDR context, updated source onboarding for NDR, updated dashboard for NDR host score surfacing.
 
 ---
@@ -288,16 +290,16 @@ A simplified query syntax that translates to Elasticsearch DSL: field-value matc
 
 **Source management endpoints:**
 - `POST /api/v1/sources` — register a new source. Body: name, type, protocol, port, parser, expected_hosts. Generates API key. Returns source config + key.
-
-**NDR host score endpoints:**
-- `GET /api/v1/host-scores` — list hosts with current NDR threat/certainty scores. Query params: quadrant, min_threat, min_certainty, sort_by. Paginated. Returns latest score per host from `sentinel-ndr-host-scores` index.
-- `GET /api/v1/host-scores/{ip}` — host score detail. Returns: current threat/certainty/quadrant, score history (last 24h trend), active NDR detections, MITRE tactics observed, protocol breakdown for that host.
 - `GET /api/v1/sources` — list all configured sources with current health status (last event, EPS, error count).
 - `GET /api/v1/sources/{id}` — source detail. Full config, health history, error log, associated API key (masked).
 - `PUT /api/v1/sources/{id}` — update source config. Body: name, expected_hosts, parser. Cannot change type after creation.
 - `DELETE /api/v1/sources/{id}` — decommission source. Revokes API key. Marks source as decommissioned. Historical data preserved.
 - `POST /api/v1/sources/{id}/test-parser` — test sub-parser against sample log line. Body: raw_log (string). Returns parsed ECS fields or parse error.
 - `GET /api/v1/sources/{id}/snippet` — generate configuration snippet. Query param: format (toml/yaml/conf). Returns the copy-paste config for the source device.
+
+**NDR host score endpoints:**
+- `GET /api/v1/host-scores` — list hosts with current NDR threat/certainty scores. Query params: quadrant, min_threat, min_certainty, sort_by. Paginated. Returns latest score per host from `sentinel-ndr-host-scores` index.
+- `GET /api/v1/host-scores/{ip}` — host score detail. Returns: current threat/certainty/quadrant, score history (last 24h trend), active NDR detections, MITRE tactics observed, protocol breakdown for that host.
 
 ### 6.3 Web Dashboard
 
@@ -585,7 +587,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 
 ### Phase 0: Project Scaffolding
 
-**Goal:** Monorepo, Go module, ES Docker setup, shared types, config.
+**Goal:** Monorepo, Go module, ES Docker setup, shared types, config, test fixtures.
 
 | ID | Task | Files | Acceptance Criteria | Est. |
 |----|------|-------|---------------------|------|
@@ -594,6 +596,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P0-T3 | Core ECS event Go struct. All field groups from 3.3 including `ndr.*`, `dns.*`, `http.*`, `tls.*`, `smb.*`, `kerberos.*`, `ssh.*` extension fields. JSON tags. Original raw field. | `internal/common/ecs_event.go` | Compiles. Round-trip marshal/unmarshal. All field groups covered. | M |
 | P0-T4 | Config loading (TOML): ES, ingest, correlate, query, case management sections. | `internal/config/config.go`, `sentinel.toml` | Loads and validates. Missing fields → clear errors. | M |
 | P0-T5 | ES client wrapper: connect, health, index template (ECS mappings), bulk index, search. | `internal/store/es_client.go`, `index_template.go` | Connects. Template created. Bulk index 100 events, search returns them. | L |
+| P0-T6 | Static test fixture files for all 6 source types (sentinel_edr, SentinelAV, SentinelDLP, SentinelNDR, Windows Events, syslog). Cover every event type from Appendix A including all 15 NDR event types. Include edge cases (missing fields, malformed JSON, unicode paths, oversized payloads, duplicate event_ids). ~600 events total. | `tests/fixtures/**/*.ndjson`, `tests/fixtures/**/*.xml`, `tests/fixtures/**/*.txt`, `tests/fixtures/edge_cases/` | Every event type has ≥3 fixture events. All conform to Appendix A schemas. NDR fixtures include session, dns, http, tls, smb, kerberos, ssh, detection, signature, host_score event types. Edge case files present. Replayable via `sentinel-cli ingest replay`. | M |
 
 ---
 
@@ -607,10 +610,11 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P1-T2 | Normalization engine framework. Source type routing. Parser registry. | `internal/normalize/engine.go`, `parser_registry.go` | Routes to correct parser. Unknown type → raw preserved. | M |
 | P1-T3 | sentinel_edr parser. Map all `SENTINEL_EVENT` types to ECS. | `internal/normalize/parsers/sentinel_edr.go` | Each event type normalizes correctly. Round-trip tests. | L |
 | P1-T4 | End-to-end pipeline: ingest → normalize → ES. Verify searchable. | `internal/ingest/pipeline.go` | POST 100 events → all in ES within 5s with correct ECS fields. | M |
+| P1-T5 | Scenario generator CLI (Python). YAML scenario parser with timeline definitions, entity directory (hosts, users, network topology), noise profile mixer (workstation, server, DC, firewall, NDR sensor), NDJSON output. Ship 3 initial scenarios: credential_theft, lateral_movement, malware_delivery. Each scenario produces events across multiple source types with realistic timing and causal relationships, mixed with background noise at ~95/5 ratio. | `tools/generate_scenarios.py`, `tools/scenarios/*.yaml`, `tools/profiles/*.yaml`, `tools/entities/*.yaml` | `python generate_scenarios.py --scenario credential_theft --output out.ndjson` produces valid NDJSON. Events conform to Appendix A schemas for all source types used. Timestamps are realistic with proper causal ordering. Entity relationships consistent across sources (same hostnames, IPs, usernames). Background noise mixed in. | L |
 
 ---
 
-### Phase 1a: Sentinel AV & DLP Parsers
+### Phase 1a: SentinelAV & DLP Parsers
 
 **Goal:** Normalize Sentinel AV and Sentinel DLP telemetry to ECS, enabling cross-portfolio correlation.
 
@@ -713,7 +717,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P7-T1 | Dashboard shell. React + Tailwind + React Router. Layout: collapsible sidebar, sticky header, content area. Pages: Overview, Alerts, Cases, Hunt, Rules, Sources, Settings. Dark/light mode toggle via Zustand + `darkMode: 'class'`. | `web/src/App.jsx`, `web/src/layouts/`, `web/src/components/Sidebar.jsx`, `web/src/components/Header.jsx`, `web/src/stores/themeStore.js` | Loads. Nav works. Responsive. Dark/light toggle persists. Sidebar collapses. | M |
 | P7-T2 | Alert queue page. TanStack Table with columns from 10.3. Severity left-border accent. Filter dropdowns. Flyout detail panel (3 tabs). Bulk actions bar. SSE integration for real-time updates with buffered banner. | `web/src/pages/Alerts.jsx`, `web/src/components/AlertFlyout.jsx`, `web/src/components/SeverityBadge.jsx` | Alerts display. Sort. Filter. Expand flyout. Acknowledge. Bulk select. SSE banner shows new alert count. | L |
 | P7-T3 | Event search page. CodeMirror 6 query bar with custom Lezer grammar, autocomplete, lint. Time picker (relative + absolute). Results histogram with brush-to-zoom. TanStack Table with virtual scroll, expandable rows (Table/JSON/Raw), column picker. Field statistics sidebar. Context menu pivot actions. | `web/src/pages/Hunt.jsx`, `web/src/components/QueryBar.jsx`, `web/src/components/TimePicker.jsx`, `web/src/components/ResultsTable.jsx`, `web/src/components/ContextMenu.jsx` | Query → results. Autocomplete suggests fields. Time range works. Brush-to-zoom updates time picker. Expandable rows show all formats. Right-click opens pivot menu. | XL |
-| P7-T4 | Overview dashboard. 5 KPI cards with sparklines. Alert trend stacked area chart. Top 10 rules bar chart. ATT&CK coverage mini-heatmap. Source health summary table. All fed by TanStack Query with polling. | `web/src/pages/Overview.jsx`, `web/src/components/KPICard.jsx`, `web/src/components/AlertTrendChart.jsx`, `web/src/components/TopRulesChart.jsx` | Correct metrics. Sparklines render. Charts display. Updates on refresh interval. | L |
+| P7-T4 | Overview dashboard. 5 KPI cards with sparklines. Alert trend stacked area chart. Top 10 rules bar chart. ATT&CK coverage mini-heatmap. Source health summary table. NDR Host Risk Panel (Row 4). All fed by TanStack Query with polling. | `web/src/pages/Overview.jsx`, `web/src/components/KPICard.jsx`, `web/src/components/AlertTrendChart.jsx`, `web/src/components/TopRulesChart.jsx`, `web/src/components/NDRHostRiskPanel.jsx` | Correct metrics. Sparklines render. Charts display. NDR panel shows Critical/High hosts. Updates on refresh interval. | L |
 | P7-T5 | Source configuration data model and ES index. Go structs for source config (name, type, protocol, port, parser, expected_hosts, api_key_id, status). Index template. CRUD service with API key generation integration. | `internal/sources/types.go`, `internal/sources/service.go`, `internal/store/source_template.go` | Structs compile. Create source → API key generated → source retrievable. Delete → key revoked. Template applied in ES. | M |
 | P7-T6 | Source management REST API. All 7 source endpoints from 6.2. Snippet generation templates for each source type (TOML, YAML, rsyslog conf, pfSense instructions). Parser test endpoint runs sample log through normalization pipeline and returns ECS output. | `internal/sources/api_handlers.go`, `internal/sources/snippets/` | All endpoints return correct JSON. Snippet for EDR source returns valid TOML. Parser test with iptables log returns correct ECS fields. Parser test with garbage input returns descriptive error. | L |
 | P7-T7 | Source onboarding wizard UI. Multi-step modal: source type selector (card grid), type-specific configuration form, snippet display with copy button, live verification panel with polling. Integrates with Sources page via "Add Source" button. | `web/src/components/SourceWizard.jsx`, `web/src/components/SourceWizardSteps/`, `web/src/components/SnippetDisplay.jsx` | Wizard opens from Sources page. Selecting EDR → shows EDR config fields. Submit → source created, snippet displayed. Verification polls and detects first event within 10s of event arrival. Skip verification works. | XL |
@@ -758,6 +762,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 
 | ID | Task | Files | Acceptance Criteria | Est. |
 |----|------|-------|---------------------|------|
+| P10-T0 | Complete scenario library (all 8 scenarios: credential_theft, lateral_movement, data_exfiltration, malware_delivery, full_kill_chain, insider_threat, brute_force, ransomware — each producing events across multiple source types including NDR). Generate full demo dataset (50K+ events, 24h simulated window, 50 hosts, all 6 source types). Validate all scenarios trigger expected Sigma rules including NDR cross-portfolio rules, with zero FPs from noise. Wire into `make demo` target. | `tools/scenarios/*.yaml` (remaining 5), `tests/generated/demo_dataset.ndjson`, `Makefile` (demo target) | All 8 scenarios produce expected alerts. Full demo dataset: 50K+ events, 40–60 alerts, 8–12 cross-source correlations (including NDR), 0 FPs. `make demo` replays dataset and populates dashboard with realistic data across all pages including NDR Host Risk Panel. | L |
 | P10-T1 | Load 50 curated SigmaHQ rules + 5 cross-portfolio rules + 5 NDR cross-portfolio rules. Verify parse + load. | `rules/sigma_curated/`, `rules/sentinel_portfolio/` | 60 rules loaded. CLI lists all with metadata. | M |
 | P10-T2 | Replay 850 events across all 6 source types (sentinel_edr, SentinelAV, SentinelDLP, SentinelNDR, Windows Events, syslog) including 40 events that should trigger loaded rules. | `tests/integration/test_events.json`, `replay_test.go` | All indexed. Exactly 40 alerts. Zero FPs from benign events. | L |
 | P10-T3 | Cross-source temporal correlation: "EDR credential theft alert → NDR lateral movement detection → EDR outbound data transfer, correlated by source.ip within 30 min." | `rules/test_cross_portfolio.yml`, `correlation_test.go` | Temporal rule fires across sentinel_edr + SentinelNDR sources. Events from same host correlated correctly. | L |
@@ -778,6 +783,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P11-T2 | Prometheus metrics. Events ingested, indexed, alerts, latency, queue depth. | `internal/common/metrics.go` | Prometheus scrapes. Grafana template. Accurate. | L |
 | P11-T3 | Load test. 1000 eps × 10 min. Measure latency, eval time, memory. | `tests/benchmark/load_test.go` | 1000 eps sustained. p95 <5s. Eval <10ms/event. No leaks. | L |
 | P11-T4 | Dead letter queue. Failed events → DLQ index. Failed alerts → retry queue. | `internal/ingest/dead_letter.go`, `internal/alert/retry_queue.go` | Malformed → DLQ. Alert pipeline timeout → retry → DLQ after 3 fails. | M |
+| P11-T5 | Deployment automation. `make install` builds all binaries + dashboard, starts Docker Compose, applies ES templates/ILM, creates admin key, starts services. `make dev` for hot-reload development. `make demo` for portfolio demos (install + replay full demo dataset + trigger correlation rules + open dashboard). `make clean` for reset. | `Makefile`, `scripts/install.sh`, `scripts/demo.sh`, `docker-compose.yml` (update), `sentinel.toml.template` | `make install` → dashboard accessible, API key printed, CLI works. `make demo` → 50K+ events in ES, alerts fired, cases available, NDR host scores populated, dashboard fully populated across all pages. `make clean` → clean state. `make dev` → hot-reload works for Go and React. | M |
 
 ---
 
@@ -794,7 +800,7 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P12-T5 | "Copy to..." action handlers. Copy to Hunt (inject query into query bar), Copy to Case Comment (POST to case timeline API, attributed to "SentinelAI"), Copy Sigma Rule (modal with syntax highlighting + save), Copy to Clipboard. | `web/src/agent/actions.js`, `web/src/components/SigmaRuleModal.jsx` | Copy to Hunt populates query bar. Copy to Case Comment creates timeline entry. Copy Sigma Rule shows valid YAML in modal. Clipboard copy works. | M |
 | P12-T6 | Query assistance mode. Agent generates SIEM query syntax from natural language, validates against grammar, offers "Copy to Hunt" action. Reverse mode: paste a query, agent explains it in plain language. | `web/src/agent/modes/query_assist.js` | Natural language → valid SIEM query. Query → plain English explanation. Generated queries return results when executed. Invalid queries detected with corrections. | M |
 | P12-T7 | Alert triage mode. Agent summarizes alert: what fired, why, process chain, cross-source context, risk assessment, recommended actions. Multi-step tool use (get_alert → search related events → lookup observables). | `web/src/agent/modes/alert_triage.js` | "Explain this alert" produces accurate summary. Agent identifies process parent chain. Agent checks cross-source events (AV/DLP) for same host/user. Recommendations are actionable. | L |
-| P12-T8 | Investigation copilot mode. Multi-step investigation: scope → timeline → lateral movement check → data exposure check → observable enrichment → narrative. Streams each step. Analyst can interrupt and redirect. | `web/src/agent/modes/investigation.js` | "What happened here?" produces structured investigation. Each step visible via tool call cards. Agent queries across EDR, AV, and DLP events. Narrative includes timeline and recommendations. Interruption works. | XL |
+| P12-T8 | Investigation copilot mode. Multi-step investigation: scope → timeline → lateral movement check → data exposure check → observable enrichment → narrative. Streams each step. Analyst can interrupt and redirect. | `web/src/agent/modes/investigation.js` | "What happened here?" produces structured investigation. Each step visible via tool call cards. Agent queries across EDR, AV, DLP, and NDR events. Narrative includes timeline and recommendations. Interruption works. | XL |
 | P12-T9 | Detection rule drafting mode. Agent generates Sigma YAML from natural language pattern description. Correct logsource mapping, field names, modifiers, MITRE tags. Optionally tests against historical data via search_events. | `web/src/agent/modes/rule_draft.js` | Generated Sigma YAML parses without error. Logsource mapping correct. MITRE tags match described technique. Historical test returns hit count and sample matches. | L |
 | P12-T10 | Integration testing. 6 end-to-end scenarios: (1) Natural language query → results. (2) Alert explanation with cross-source context. (3) Case investigation with multi-step tool use. (4) Sigma rule generation + historical validation. (5) Cross-portfolio attack narrative from full-chain correlation alert including NDR network telemetry. (6) NDR host score assessment — agent queries host scores, identifies Critical hosts, explains active NDR detections and recommends investigation steps. | `tests/integration/agent_test.js` | All 6 scenarios produce correct output. Tool calls hit correct endpoints including host-scores. Streaming renders without errors. No hallucinated field names or query syntax. Cross-portfolio narrative correctly attributes events to EDR/AV/DLP/NDR sources with network session metadata. | L |
 
@@ -804,8 +810,8 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 
 | Phase | Name | Tasks | Depends On | Focus |
 |-------|------|-------|------------|-------|
-| P0 | Scaffolding | 5 | — | Foundation |
-| P1 | HTTP + sentinel_edr | 4 | P0 | Ingestion |
+| P0 | Scaffolding | 6 | — | Foundation |
+| P1 | HTTP + sentinel_edr | 5 | P0 | Ingestion |
 | P1a | SentinelAV & DLP Parsers | 4 | P1 | Ingestion |
 | P1b | SentinelNDR Parser | 5 | P1 | Ingestion |
 | P2 | Windows Events | 4 | P1 | Ingestion |
@@ -816,11 +822,11 @@ Same workflow as sentinel_edr: each task has an ID, files, acceptance criteria, 
 | P7 | Dashboard + Sources | 10 | P6 | Interface |
 | P8 | CLI | 4 | P0–P7 | Operations |
 | P9 | Case Management | 7 | P4, P7 | Response + Investigation |
-| P10 | Integration Tests | 7 | All | Validation |
-| P11 | Hardening | 4 | All | Production |
+| P10 | Integration Tests | 8 | All | Validation |
+| P11 | Hardening | 5 | All | Production |
 | P12 | AI Investigation Assistant | 10 | P6, P7, P9 | AI-Augmented Investigation |
 
-**Total: 82 tasks, 15 phases. Estimated 56–80 Claude Code sessions.**
+**Total: 86 tasks, 15 phases. Estimated 59–83 Claude Code sessions.**
 
 ---
 

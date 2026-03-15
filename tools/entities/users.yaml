@@ -1,0 +1,36 @@
+users:
+  - name: jsmith
+    full_name: "John Smith"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-1001"
+    domain: CORP
+    department: Engineering
+
+  - name: agarcia
+    full_name: "Ana Garcia"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-1002"
+    domain: CORP
+    department: Finance
+
+  - name: bwilson
+    full_name: "Bob Wilson"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-1003"
+    domain: CORP
+    department: IT
+
+  - name: admin
+    full_name: "Domain Admin"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-500"
+    domain: CORP
+    department: IT
+
+  - name: svc_backup
+    full_name: "Backup Service"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-1100"
+    domain: CORP
+    department: IT
+
+  - name: www-data
+    full_name: "Web Service"
+    sid: "S-1-5-21-3623811015-3361044348-30300820-1200"
+    domain: CORP
+    department: IT

@@ -1,0 +1,5 @@
+{"source_type":"sentinel_edr","schema":"sentinel/v1","host":"WORKSTATION-01","timestamp":"2026-03-14T10:00:00Z","event":{"eventId":"bad1
+{"source_type":"sentinel_av","timestamp":"2026-03-14T10:05:00Z","hostname":"WORKSTATION-01","event_type":"av:scan_result","payload":{"verdict":"clean"
+not json at all - this is just plain text
+{"source_type":"sentinel_ndr","timestamp":"2026-03-14T10:15:00Z","event_type":"ndr:session","source":{"ip":"192.168.1.100","port":49152},"destination":{"ip":"10.0.0.1","port":443},}
+{"source_type":"sentinel_edr","schema":"sentinel/v1","host":"WORKSTATION-01","timestamp":"2026-03-14T10:20:00Z","event":{"eventId":"bad5-truncated","timestamp":"2026-03-14T10:20:00Z","source":"DriverProcess","severity":"Low","process":{"pid":1234,"parentPid":5678,"thread

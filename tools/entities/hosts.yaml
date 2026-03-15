@@ -1,0 +1,46 @@
+hosts:
+  - name: WORKSTATION-01
+    ip: 192.168.1.10
+    os: "Windows 10 Enterprise"
+    profile: workstation
+    users: [jsmith]
+
+  - name: WORKSTATION-02
+    ip: 192.168.1.11
+    os: "Windows 10 Enterprise"
+    profile: workstation
+    users: [agarcia]
+
+  - name: WORKSTATION-03
+    ip: 192.168.1.12
+    os: "Windows 10 Enterprise"
+    profile: workstation
+    users: [bwilson]
+
+  - name: SERVER-DC-01
+    ip: 10.0.0.1
+    os: "Windows Server 2022"
+    profile: dc
+    users: [admin]
+
+  - name: SERVER-DB-01
+    ip: 10.0.0.10
+    os: "Windows Server 2022"
+    profile: server
+    users: [svc_backup]
+
+  - name: SERVER-WEB-01
+    ip: 10.0.0.20
+    os: "Ubuntu 22.04"
+    profile: server
+    users: [www-data]
+
+  - name: FW-EDGE-01
+    ip: 10.0.0.254
+    os: "pfSense"
+    profile: firewall
+
+  - name: NDR-SENSOR-01
+    ip: 10.0.0.200
+    os: "SentinelNDR Appliance"
+    profile: ndr_sensor

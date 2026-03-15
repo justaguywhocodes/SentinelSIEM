@@ -1,0 +1,40 @@
+name: firewall
+description: "Normal firewall/network device activity"
+events_per_minute: 15
+event_templates:
+  - weight: 40
+    source_type: syslog
+    template: firewall_pass
+    fields:
+      interface_in: "{{ random_choice(['em0', 'em1', 'igb0']) }}"
+      interface_out: "{{ random_choice(['em0', 'em1', 'igb0']) }}"
+      src_ip: "{{ random_choice(['192.168.1.10', '192.168.1.11', '192.168.1.12']) }}"
+      dst_ip: "{{ random_choice(['151.101.1.140', '142.250.80.46', '13.107.42.14', '23.45.67.89']) }}"
+      src_port: "{{ random_port() }}"
+      dst_port: "{{ random_choice([443, 80, 53]) }}"
+      protocol: tcp
+
+  - weight: 25
+    source_type: syslog
+    template: firewall_block
+    fields:
+      interface_in: em0
+      src_ip: "{{ random_choice(['203.0.113.50', '198.51.100.100', '192.0.2.77']) }}"
+      dst_ip: "{{ random_choice(['10.0.0.1', '10.0.0.10', '10.0.0.20']) }}"
+      src_port: "{{ random_port() }}"
+      dst_port: "{{ random_choice([22, 3389, 445, 23]) }}"
+      protocol: tcp
+
+  - weight: 20
+    source_type: syslog
+    template: firewall_nat
+    fields:
+      src_ip: "{{ random_choice(['192.168.1.10', '192.168.1.11', '192.168.1.12']) }}"
+      translated_ip: "203.0.113.1"
+      dst_ip: "{{ random_choice(['151.101.1.140', '142.250.80.46']) }}"
+
+  - weight: 15
+    source_type: syslog
+    template: firewall_state
+    fields:
+      message: "{{ random_choice(['State table entries: 1245', 'Gateway monitor: UP', 'CARP: MASTER on em0']) }}"

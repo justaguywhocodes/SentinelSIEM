@@ -1,0 +1,57 @@
+name: server
+description: "Normal server activity"
+events_per_minute: 8
+event_templates:
+  - weight: 25
+    source_type: sentinel_edr
+    template: network_connection
+    fields:
+      remote_ip: "{{ random_choice(['192.168.1.10', '192.168.1.11', '192.168.1.12', '10.0.0.1']) }}"
+      remote_port: "{{ random_choice([445, 3389, 443, 80, 1433, 5432]) }}"
+      local_port: "{{ random_choice([445, 3389, 443, 80, 1433, 5432]) }}"
+      direction: Inbound
+      protocol: 6
+      severity: Low
+
+  - weight: 20
+    source_type: sentinel_edr
+    template: process_creation
+    fields:
+      process_name: "{{ random_choice(['svchost.exe', 'w3wp.exe', 'sqlservr.exe', 'lsass.exe', 'services.exe', 'taskhostw.exe']) }}"
+      command_line: "{{ random_choice(['C:\\\\Windows\\\\System32\\\\svchost.exe -k netsvcs', 'C:\\\\Windows\\\\System32\\\\svchost.exe -k LocalService', 'C:\\\\Program Files\\\\Microsoft SQL Server\\\\MSSQL16.MSSQLSERVER\\\\MSSQL\\\\Binn\\\\sqlservr.exe']) }}"
+      parent_process: services.exe
+      severity: Low
+
+  - weight: 15
+    source_type: sentinel_edr
+    template: file_operation
+    fields:
+      operation: "{{ random_choice(['Write', 'Create', 'Read']) }}"
+      file_path: "{{ random_choice(['C:\\\\ProgramData\\\\Microsoft\\\\Windows\\\\WER\\\\ReportQueue\\\\report.wer', 'C:\\\\Windows\\\\Temp\\\\cab_extract.tmp', 'C:\\\\inetpub\\\\logs\\\\LogFiles\\\\W3SVC1\\\\u_ex260314.log']) }}"
+      severity: Low
+
+  - weight: 15
+    source_type: winevt_xml
+    template: logon_success
+    fields:
+      logon_type: 3
+
+  - weight: 10
+    source_type: sentinel_edr
+    template: registry_operation
+    fields:
+      operation: SetValue
+      key_path: "HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Application"
+      severity: Low
+
+  - weight: 10
+    source_type: sentinel_av
+    template: scan_result_clean
+    fields: {}
+
+  - weight: 5
+    source_type: sentinel_edr
+    template: dns_query
+    fields:
+      query_name: "{{ random_choice(['dc01.corp.local', 'update.microsoft.com', 'time.windows.com']) }}"
+      severity: Low

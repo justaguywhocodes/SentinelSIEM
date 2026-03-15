@@ -1,0 +1,54 @@
+name: dc
+description: "Normal domain controller activity"
+events_per_minute: 12
+event_templates:
+  - weight: 25
+    source_type: winevt_xml
+    template: logon_success
+    fields:
+      logon_type: 3
+
+  - weight: 20
+    source_type: winevt_xml
+    template: kerberos_tgt
+    fields: {}
+
+  - weight: 15
+    source_type: sentinel_edr
+    template: process_creation
+    fields:
+      process_name: "{{ random_choice(['lsass.exe', 'svchost.exe', 'dns.exe', 'ntfrs.exe', 'dfsr.exe', 'ismserv.exe']) }}"
+      command_line: "{{ random_choice(['C:\\\\Windows\\\\System32\\\\lsass.exe', 'C:\\\\Windows\\\\System32\\\\svchost.exe -k netsvcs', 'C:\\\\Windows\\\\System32\\\\dns.exe']) }}"
+      parent_process: services.exe
+      severity: Low
+
+  - weight: 15
+    source_type: sentinel_edr
+    template: network_connection
+    fields:
+      remote_ip: "{{ random_choice(['192.168.1.10', '192.168.1.11', '192.168.1.12', '10.0.0.10', '10.0.0.20']) }}"
+      remote_port: "{{ random_choice([88, 389, 636, 53, 445, 135]) }}"
+      local_port: "{{ random_choice([88, 389, 636, 53, 445]) }}"
+      direction: Inbound
+      protocol: 6
+      severity: Low
+
+  - weight: 10
+    source_type: sentinel_edr
+    template: dns_query
+    fields:
+      query_name: "{{ random_choice(['_ldap._tcp.corp.local', '_kerberos._tcp.corp.local', 'gc._msdcs.corp.local']) }}"
+      severity: Low
+
+  - weight: 10
+    source_type: sentinel_edr
+    template: registry_operation
+    fields:
+      operation: SetValue
+      key_path: "{{ random_choice(['HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\NTDS\\\\Parameters', 'HKLM\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\DNS\\\\Parameters']) }}"
+      severity: Low
+
+  - weight: 5
+    source_type: sentinel_av
+    template: scan_result_clean
+    fields: {}

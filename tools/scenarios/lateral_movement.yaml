@@ -1,0 +1,201 @@
+name: lateral_movement
+description: "After credential theft, attacker uses stolen creds to RDP and PsExec across servers"
+duration_minutes: 90
+actors:
+  attacker:
+    initial_host: WORKSTATION-02
+    initial_user: agarcia
+  pivot_host: SERVER-WEB-01
+  target_host: SERVER-DB-01
+  stolen_user: admin
+
+timeline:
+  # Phase 1: Initial RDP to web server
+  - time_offset_sec: 0
+    source_type: sentinel_ndr
+    template: ndr_session
+    fields:
+      src_ip: "{{ host_ip(actors.attacker.initial_host) }}"
+      dst_ip: "{{ host_ip(actors.pivot_host) }}"
+      src_port: 50100
+      dst_port: 3389
+      protocol: tcp
+      bytes_in: 245000
+      bytes_out: 1820000
+
+  - time_offset_sec: 1
+    source_type: sentinel_ndr
+    template: ndr_rdp
+    fields:
+      src_ip: "{{ host_ip(actors.attacker.initial_host) }}"
+      dst_ip: "{{ host_ip(actors.pivot_host) }}"
+      cookie: "admin"
+
+  - time_offset_sec: 5
+    source_type: winevt_xml
+    template: logon_success
+    host: "{{ actors.pivot_host }}"
+    fields:
+      logon_type: 10
+      user: admin
+      source_ip: "{{ host_ip(actors.attacker.initial_host) }}"
+      event_id: 4624
+
+  - time_offset_sec: 6
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.pivot_host }}"
+    fields:
+      process_name: rdpclip.exe
+      command_line: "rdpclip.exe"
+      parent_process: svchost.exe
+      user: admin
+      severity: Low
+
+  # Phase 2: Recon from pivot host
+  - time_offset_sec: 60
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.pivot_host }}"
+    fields:
+      process_name: cmd.exe
+      command_line: "cmd.exe /c ipconfig /all"
+      parent_process: explorer.exe
+      user: admin
+      severity: Low
+
+  - time_offset_sec: 75
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.pivot_host }}"
+    fields:
+      process_name: cmd.exe
+      command_line: "cmd.exe /c net view /domain"
+      parent_process: explorer.exe
+      user: admin
+      severity: Medium
+
+  - time_offset_sec: 90
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.pivot_host }}"
+    fields:
+      process_name: cmd.exe
+      command_line: "cmd.exe /c nltest /dclist:corp"
+      parent_process: explorer.exe
+      user: admin
+      severity: Medium
+
+  - time_offset_sec: 110
+    source_type: sentinel_edr
+    template: dns_query
+    host: "{{ actors.pivot_host }}"
+    fields:
+      query_name: "server-db-01.corp.local"
+      user: admin
+      severity: Low
+
+  # Phase 3: PsExec to DB server
+  - time_offset_sec: 180
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.pivot_host }}"
+    fields:
+      process_name: PsExec.exe
+      command_line: "PsExec.exe \\\\SERVER-DB-01 -u CORP\\admin -p *** cmd.exe"
+      parent_process: cmd.exe
+      user: admin
+      severity: High
+
+  - time_offset_sec: 181
+    source_type: sentinel_ndr
+    template: ndr_session
+    fields:
+      src_ip: "{{ host_ip(actors.pivot_host) }}"
+      dst_ip: "{{ host_ip(actors.target_host) }}"
+      src_port: 50200
+      dst_port: 445
+      protocol: tcp
+      bytes_in: 52000
+      bytes_out: 18000
+
+  - time_offset_sec: 182
+    source_type: sentinel_ndr
+    template: ndr_smb
+    fields:
+      src_ip: "{{ host_ip(actors.pivot_host) }}"
+      dst_ip: "{{ host_ip(actors.target_host) }}"
+      action: tree_connect
+      share_name: "\\\\SERVER-DB-01\\ADMIN$"
+
+  - time_offset_sec: 183
+    source_type: sentinel_ndr
+    template: ndr_smb
+    fields:
+      src_ip: "{{ host_ip(actors.pivot_host) }}"
+      dst_ip: "{{ host_ip(actors.target_host) }}"
+      action: write
+      share_name: "\\\\SERVER-DB-01\\ADMIN$"
+
+  - time_offset_sec: 185
+    source_type: winevt_xml
+    template: logon_success
+    host: "{{ actors.target_host }}"
+    fields:
+      logon_type: 3
+      user: admin
+      source_ip: "{{ host_ip(actors.pivot_host) }}"
+      event_id: 4624
+
+  - time_offset_sec: 186
+    source_type: winevt_xml
+    template: service_install
+    host: "{{ actors.target_host }}"
+    fields:
+      service_name: PSEXESVC
+      service_path: "%SystemRoot%\\PSEXESVC.exe"
+      event_id: 7045
+
+  - time_offset_sec: 187
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.target_host }}"
+    fields:
+      process_name: PSEXESVC.exe
+      command_line: "C:\\Windows\\PSEXESVC.exe"
+      parent_process: services.exe
+      user: SYSTEM
+      severity: High
+
+  - time_offset_sec: 188
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.target_host }}"
+    fields:
+      process_name: cmd.exe
+      command_line: "cmd.exe"
+      parent_process: PSEXESVC.exe
+      user: admin
+      severity: High
+
+  # Phase 4: Data exfiltration prep on DB server
+  - time_offset_sec: 300
+    source_type: sentinel_edr
+    template: process_creation
+    host: "{{ actors.target_host }}"
+    fields:
+      process_name: cmd.exe
+      command_line: "cmd.exe /c dir D:\\Databases\\ /s"
+      parent_process: PSEXESVC.exe
+      user: admin
+      severity: Medium
+
+  - time_offset_sec: 350
+    source_type: sentinel_edr
+    template: file_operation
+    host: "{{ actors.target_host }}"
+    fields:
+      operation: Read
+      file_path: "D:\\Databases\\customers_pii.mdf"
+      user: admin
+      severity: Medium

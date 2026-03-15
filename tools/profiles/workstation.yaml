@@ -1,0 +1,64 @@
+name: workstation
+description: "Normal workstation activity"
+events_per_minute: 5
+event_templates:
+  - weight: 30
+    source_type: sentinel_edr
+    template: process_creation
+    fields:
+      process_name: "{{ random_choice(['chrome.exe', 'outlook.exe', 'excel.exe', 'teams.exe', 'notepad.exe', 'code.exe', 'explorer.exe']) }}"
+      command_line: "{{ random_choice(['\"C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\" --type=renderer', '\"C:\\\\Program Files\\\\Microsoft Office\\\\root\\\\Office16\\\\OUTLOOK.EXE\"', '\"C:\\\\Program Files\\\\Microsoft Office\\\\root\\\\Office16\\\\EXCEL.EXE\"', '\"C:\\\\Users\\\\{{ user }}\\\\AppData\\\\Local\\\\Microsoft\\\\Teams\\\\current\\\\Teams.exe\"', 'notepad.exe']) }}"
+      parent_process: explorer.exe
+      severity: Low
+
+  - weight: 20
+    source_type: sentinel_edr
+    template: network_connection
+    fields:
+      remote_ip: "{{ random_choice(['151.101.1.140', '142.250.80.46', '13.107.42.14', '23.45.67.89', '20.190.159.0']) }}"
+      remote_port: "{{ random_choice([443, 80, 8080]) }}"
+      local_port: "{{ random_port() }}"
+      direction: Outbound
+      protocol: 6
+      severity: Low
+
+  - weight: 15
+    source_type: sentinel_edr
+    template: file_operation
+    fields:
+      operation: Write
+      file_path: "{{ random_choice(['C:\\\\Users\\\\{{ user }}\\\\Documents\\\\report.docx', 'C:\\\\Users\\\\{{ user }}\\\\AppData\\\\Local\\\\Temp\\\\tmp_cache.dat', 'C:\\\\Users\\\\{{ user }}\\\\Downloads\\\\quarterly_review.xlsx']) }}"
+      severity: Low
+
+  - weight: 10
+    source_type: sentinel_edr
+    template: registry_operation
+    fields:
+      operation: SetValue
+      key_path: "{{ random_choice(['HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Explorer\\\\UserAssist', 'HKCU\\\\Software\\\\Microsoft\\\\Office\\\\16.0\\\\Common\\\\General', 'HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run']) }}"
+      severity: Low
+
+  - weight: 10
+    source_type: winevt_xml
+    template: logon_success
+    fields:
+      logon_type: 2
+
+  - weight: 5
+    source_type: sentinel_edr
+    template: dns_query
+    fields:
+      query_name: "{{ random_choice(['www.google.com', 'outlook.office365.com', 'teams.microsoft.com', 'cdn.jsdelivr.net', 'update.microsoft.com']) }}"
+      severity: Low
+
+  - weight: 5
+    source_type: sentinel_av
+    template: scan_result_clean
+    fields: {}
+
+  - weight: 5
+    source_type: sentinel_edr
+    template: image_load
+    fields:
+      image_path: "{{ random_choice(['C:\\\\Windows\\\\System32\\\\kernel32.dll', 'C:\\\\Windows\\\\System32\\\\ntdll.dll', 'C:\\\\Windows\\\\System32\\\\user32.dll', 'C:\\\\Windows\\\\System32\\\\advapi32.dll']) }}"
+      severity: Low
