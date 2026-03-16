@@ -30,6 +30,8 @@ export const useThemeStore = create((set, get) => ({
   mode: savedMode,
   resolved: initialResolved,
 
+  isDark: () => get().resolved === 'dark',
+
   setMode: (mode) => {
     const resolved = resolveTheme(mode)
     applyTheme(resolved)
