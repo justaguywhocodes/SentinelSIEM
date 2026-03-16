@@ -50,6 +50,9 @@ func main() {
 	if err := esStore.EnsureSessionIndex(ctx); err != nil {
 		log.Printf("Warning: failed to ensure session index: %v", err)
 	}
+	if err := esStore.EnsureCaseIndex(ctx); err != nil {
+		log.Printf("Warning: failed to ensure case index: %v", err)
+	}
 
 	// Initialize API key store.
 	apiKeyIndex := esStore.Prefix() + "-api-keys"
