@@ -14,6 +14,7 @@ type Config struct {
 	Ingest        IngestConfig        `toml:"ingest"`
 	Correlate     CorrelateConfig     `toml:"correlate"`
 	Query         QueryConfig         `toml:"query"`
+	Auth          AuthConfig          `toml:"auth"`
 	Cases         CasesConfig         `toml:"cases"`
 	Logging       LoggingConfig       `toml:"logging"`
 }
@@ -72,6 +73,11 @@ type QueryConfig struct {
 	CORSOrigins []string `toml:"cors_origins"`
 }
 
+// AuthConfig holds authentication settings.
+type AuthConfig struct {
+	JWTSecret string `toml:"jwt_secret"`
+}
+
 // CasesConfig holds case management settings.
 type CasesConfig struct {
 	RetentionDays    int  `toml:"retention_days"`
@@ -111,6 +117,9 @@ func Defaults() Config {
 			StateExpirySec:    3600,
 			MaxBucketsPerRule: 10000,
 			DedupWindowSec:   60,
+		},
+		Auth: AuthConfig{
+			JWTSecret: "change-me-in-production",
 		},
 		Query: QueryConfig{
 			Addr:        "0.0.0.0",
