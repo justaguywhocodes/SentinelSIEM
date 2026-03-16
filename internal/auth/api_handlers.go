@@ -9,16 +9,28 @@ import (
 
 // APIHandler handles auth-related HTTP endpoints.
 type APIHandler struct {
-	service *Service
+	service     *Service
+	rateLimiter *LoginRateLimiter
 }
 
 // NewAPIHandler creates a new auth APIHandler.
-func NewAPIHandler(service *Service) *APIHandler {
-	return &APIHandler{service: service}
+func NewAPIHandler(service *Service, rateLimiter *LoginRateLimiter) *APIHandler {
+	return &APIHandler{service: service, rateLimiter: rateLimiter}
 }
 
 // HandleLogin handles POST /api/v1/auth/login.
+// Rate limited: 5 failed attempts per 30s per IP → 429.
 func (h *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	ip := r.RemoteAddr
+
+	// Check rate limit before processing.
+	if !h.rateLimiter.Allow(ip) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{
+			"error": "too many login attempts, try again later",
+		})
+		return
+	}
+
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -31,11 +43,11 @@ func (h *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userAgent := r.UserAgent()
-	ip := r.RemoteAddr
 
 	resp, err := h.service.Login(r.Context(), &req, userAgent, ip)
 	if err != nil {
-		if errors.Is(err, ErrInvalidPassword) || errors.Is(err, ErrUserDisabled) {
+		if errors.Is(err, ErrInvalidPassword) || errors.Is(err, ErrUserDisabled) || errors.Is(err, ErrUserNotFound) {
+			h.rateLimiter.Record(ip)
 			writeError(w, http.StatusUnauthorized, "invalid username or password")
 			return
 		}
@@ -44,6 +56,8 @@ func (h *APIHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Successful login — clear rate limit for this IP.
+	h.rateLimiter.Reset(ip)
 	writeJSON(w, http.StatusOK, resp)
 }
 

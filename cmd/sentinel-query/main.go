@@ -95,8 +95,9 @@ func main() {
 	// Create query API handler.
 	apiHandler := query.NewAPIHandler(searcher, defaultIndex)
 
-	// Create auth API handler.
-	authHandler := auth.NewAPIHandler(authService)
+	// Create auth API handler with login rate limiter (5 attempts per 30s per IP).
+	loginLimiter := auth.NewLoginRateLimiter(5, 30*time.Second)
+	authHandler := auth.NewAPIHandler(authService, loginLimiter)
 
 	// Build router with middleware.
 	r := chi.NewRouter()
