@@ -15,8 +15,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/SentinelSIEM/sentinel-siem/internal/common"
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
+	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
 	"github.com/SentinelSIEM/sentinel-siem/internal/query"
+	"github.com/SentinelSIEM/sentinel-siem/internal/sources"
 	"github.com/SentinelSIEM/sentinel-siem/internal/store"
 )
 
@@ -35,13 +38,34 @@ func main() {
 		log.Fatalf("Failed to create Elasticsearch store: %v", err)
 	}
 
+	// Ensure dedicated indices exist.
+	ctx := context.Background()
+	if err := esStore.EnsureSourceIndex(ctx); err != nil {
+		log.Printf("Warning: failed to ensure source index: %v", err)
+	}
+
+	// Initialize API key store.
+	apiKeyIndex := esStore.Prefix() + "-api-keys"
+	keyStore := common.NewAPIKeyStore(esStore, apiKeyIndex)
+	if err := keyStore.LoadAll(ctx); err != nil {
+		log.Printf("Warning: failed to load API keys: %v", err)
+	}
+
+	// Initialize normalization engine (for parser testing).
+	registry := normalize.NewRegistry()
+	engine := normalize.NewEngine(registry)
+
+	// Initialize source service and handler.
+	sourceService := sources.NewService(esStore, keyStore, esStore.SourceIndexName())
+	sourceHandler := sources.NewAPIHandler(sourceService, engine)
+
 	// Create store adapter that maps store.SearchRawResult → query.SearchRawResult.
 	searcher := &storeAdapter{store: esStore}
 
 	// Default index pattern from config prefix.
 	defaultIndex := cfg.Elasticsearch.IndexPrefix + "-events-*"
 
-	// Create API handler.
+	// Create query API handler.
 	apiHandler := query.NewAPIHandler(searcher, defaultIndex)
 
 	// Build router with middleware.
@@ -55,7 +79,7 @@ func main() {
 	// CORS configuration.
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.Query.CORSOrigins,
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type", "X-API-Key"},
 		ExposedHeaders:   []string{"X-Request-Id"},
 		AllowCredentials: false,
@@ -65,6 +89,9 @@ func main() {
 	// Routes.
 	r.Get("/api/v1/health", apiHandler.HandleHealth)
 	r.Post("/api/v1/query", apiHandler.HandleQuery)
+
+	// Source management routes.
+	sourceHandler.Routes(r)
 
 	// Server.
 	addr := fmt.Sprintf("%s:%d", cfg.Query.Addr, cfg.Query.Port)
