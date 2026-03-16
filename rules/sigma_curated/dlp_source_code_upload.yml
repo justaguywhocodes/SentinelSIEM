@@ -1,0 +1,25 @@
+title: Source Code Exfiltration via Upload
+id: a1b2c3d4-3003-4a1b-9c23-000000000023
+status: stable
+description: |
+  Detects intellectual property or source code being uploaded to external
+  services in violation of IP protection policies.
+references:
+  - https://attack.mitre.org/techniques/T1048/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.exfiltration
+  - attack.t1048
+level: critical
+logsource:
+  product: sentinel_dlp
+detection:
+  selection_policy:
+    dlp.policy.name|contains:
+      - IP-Protection
+  selection_channel:
+    dlp.channel: upload
+  condition: selection_policy and selection_channel
+falsepositives:
+  - Authorized code sharing with approved partners

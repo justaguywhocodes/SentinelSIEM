@@ -1,0 +1,25 @@
+title: New Service Installed
+id: a1b2c3d4-5005-4a1b-9c38-000000000038
+status: stable
+description: |
+  Detects installation of new Windows services, which may indicate
+  persistence mechanisms or malicious service creation.
+references:
+  - https://attack.mitre.org/techniques/T1543/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.persistence
+  - attack.t1543.003
+level: medium
+logsource:
+  product: windows
+  service: system
+detection:
+  selection:
+    event.action|contains:
+      - service_install
+  condition: selection
+falsepositives:
+  - Legitimate software installations
+  - Windows updates installing new services

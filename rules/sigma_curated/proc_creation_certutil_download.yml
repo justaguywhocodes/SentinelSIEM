@@ -1,0 +1,28 @@
+title: Certutil Download Cradle
+id: a1b2c3d4-1003-4a1b-9c03-000000000003
+status: stable
+description: |
+  Detects certutil.exe being used as a download cradle to fetch remote
+  payloads, a well-known living-off-the-land technique.
+references:
+  - https://attack.mitre.org/techniques/T1105/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1105
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - certutil
+  selection_cmdline:
+    process.command_line|contains:
+      - urlcache
+      - -split
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate certificate operations using certutil

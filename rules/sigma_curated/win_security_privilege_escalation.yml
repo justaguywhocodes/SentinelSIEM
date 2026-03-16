@@ -1,0 +1,25 @@
+title: Special Privileges Assigned to Logon
+id: a1b2c3d4-5003-4a1b-9c36-000000000036
+status: stable
+description: |
+  Detects special privileges being assigned during logon, which may
+  indicate privilege escalation attempts.
+references:
+  - https://attack.mitre.org/techniques/T1078/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.privilege_escalation
+  - attack.t1078
+level: medium
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - special_logon
+      - privilege
+  condition: selection
+falsepositives:
+  - Administrator logons with expected elevated privileges

@@ -1,0 +1,28 @@
+title: Rundll32 Executing From User Temp Directory
+id: a1b2c3d4-1005-4a1b-9c05-000000000005
+status: stable
+description: |
+  Detects rundll32.exe loading DLLs from user temp or AppData directories,
+  a common indicator of malware execution via DLL side-loading.
+references:
+  - https://attack.mitre.org/techniques/T1218/011/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.defense_evasion
+  - attack.t1218.011
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - rundll32
+  selection_path:
+    process.command_line|contains:
+      - Temp
+      - AppData
+  condition: selection_name and selection_path
+falsepositives:
+  - Legitimate software installations using rundll32 from temp directories

@@ -1,0 +1,26 @@
+title: Direct Root Login Detected
+id: a1b2c3d4-6004-4a1b-9c47-000000000047
+status: stable
+description: |
+  Detects direct root login sessions on Linux systems, which violates
+  security best practices and may indicate unauthorized access.
+references:
+  - https://attack.mitre.org/techniques/T1078/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.persistence
+  - attack.t1078.003
+level: high
+logsource:
+  product: linux
+detection:
+  selection:
+    user.name: root
+    event.action|contains:
+      - login
+      - session
+  condition: selection
+falsepositives:
+  - Emergency maintenance requiring direct root access
+  - Console access in data center environments

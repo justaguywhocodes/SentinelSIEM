@@ -1,0 +1,26 @@
+title: Brute Force Logon Failures
+id: a1b2c3d4-5001-4a1b-9c34-000000000034
+status: stable
+description: |
+  Detects multiple failed logon attempts that may indicate a brute force
+  attack against user accounts.
+references:
+  - https://attack.mitre.org/techniques/T1110/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.credential_access
+  - attack.t1110
+level: high
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - logon
+    event.outcome: failure
+  condition: selection
+falsepositives:
+  - Users mistyping their passwords
+  - Service accounts with expired credentials

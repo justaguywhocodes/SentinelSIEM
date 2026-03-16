@@ -1,0 +1,29 @@
+title: Mshta Script Execution
+id: a1b2c3d4-1006-4a1b-9c06-000000000006
+status: stable
+description: |
+  Detects mshta.exe executing JavaScript, VBScript, or fetching remote
+  content, commonly used to bypass application whitelisting.
+references:
+  - https://attack.mitre.org/techniques/T1218/005/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.defense_evasion
+  - attack.t1218.005
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - mshta
+  selection_cmdline:
+    process.command_line|contains:
+      - javascript
+      - vbscript
+      - http
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate HTA applications used by enterprise software

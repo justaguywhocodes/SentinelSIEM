@@ -1,0 +1,27 @@
+title: DNS Query for Suspicious Top-Level Domain
+id: a1b2c3d4-4007-4a1b-9c32-000000000032
+status: stable
+description: |
+  Detects DNS queries to suspicious or frequently abused top-level domains
+  commonly used for phishing and malware distribution.
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1071.004
+level: medium
+logsource:
+  category: dns
+detection:
+  selection:
+    dns.question.name|endswith:
+      - .xyz
+      - .top
+      - .tk
+      - .ml
+      - .cf
+  condition: selection
+falsepositives:
+  - Legitimate websites using these TLDs

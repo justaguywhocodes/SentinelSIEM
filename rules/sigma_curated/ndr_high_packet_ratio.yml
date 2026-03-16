@@ -1,0 +1,23 @@
+title: High Packet Count Session - Beacon-Like Activity
+id: a1b2c3d4-4008-4a1b-9c33-000000000033
+status: stable
+description: |
+  Detects sessions with a high number of packets sent, which may indicate
+  beacon-like C2 communication patterns.
+references:
+  - https://attack.mitre.org/techniques/T1071/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1071
+level: medium
+logsource:
+  product: sentinel_ndr
+detection:
+  selection:
+    ndr.session.packets_sent|gt: 400
+  condition: selection
+falsepositives:
+  - High-throughput legitimate applications
+  - Video conferencing or streaming

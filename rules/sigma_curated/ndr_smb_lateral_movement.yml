@@ -1,0 +1,26 @@
+title: SMB Lateral Movement Detected
+id: a1b2c3d4-4004-4a1b-9c29-000000000029
+status: stable
+description: |
+  Detects SMB connections on port 445 that may indicate lateral movement
+  between hosts within the network.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+level: medium
+logsource:
+  category: network_connection
+  product: sentinel_ndr
+detection:
+  selection_port:
+    destination.port: 445
+  selection_protocol:
+    network.protocol|contains:
+      - smb
+  condition: selection_port and selection_protocol
+falsepositives:
+  - Normal file sharing and printer access via SMB

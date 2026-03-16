@@ -1,0 +1,25 @@
+title: Sudo Privilege Escalation
+id: a1b2c3d4-6002-4a1b-9c45-000000000045
+status: stable
+description: |
+  Detects usage of sudo or su commands for privilege escalation
+  on Linux systems.
+references:
+  - https://attack.mitre.org/techniques/T1548/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+level: low
+logsource:
+  product: linux
+detection:
+  selection:
+    process.name|contains:
+      - sudo
+      - su
+  condition: selection
+falsepositives:
+  - Normal administrative use of sudo
+  - Automated deployment scripts requiring elevated privileges

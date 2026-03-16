@@ -1,0 +1,26 @@
+title: SSH Brute Force Attempt
+id: a1b2c3d4-6001-4a1b-9c44-000000000044
+status: stable
+description: |
+  Detects failed SSH authentication attempts that may indicate
+  a brute force attack against Linux systems.
+references:
+  - https://attack.mitre.org/techniques/T1110/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.credential_access
+  - attack.t1110
+level: high
+logsource:
+  product: linux
+detection:
+  selection:
+    event.action|contains:
+      - ssh
+      - failed
+    event.outcome: failure
+  condition: selection
+falsepositives:
+  - Users mistyping SSH passwords
+  - Automated scripts with stale credentials

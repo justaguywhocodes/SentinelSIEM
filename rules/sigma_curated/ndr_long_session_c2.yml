@@ -1,0 +1,22 @@
+title: Long Duration Network Session - C2 Beaconing Indicator
+id: a1b2c3d4-4001-4a1b-9c26-000000000026
+status: stable
+description: |
+  Detects unusually long network sessions that may indicate command and
+  control beaconing or persistent backdoor connections.
+references:
+  - https://attack.mitre.org/techniques/T1071/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1071
+level: medium
+logsource:
+  product: sentinel_ndr
+detection:
+  selection:
+    ndr.session.duration|gt: 3000
+  condition: selection
+falsepositives:
+  - Long-lived legitimate connections such as VPN or streaming services

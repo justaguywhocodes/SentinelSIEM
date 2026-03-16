@@ -1,0 +1,28 @@
+title: Regsvr32 Squiblydoo Attack
+id: a1b2c3d4-1015-4a1b-9c15-000000000015
+status: stable
+description: |
+  Detects regsvr32.exe loading scrobj.dll or fetching remote scriptlets,
+  known as the Squiblydoo attack for application whitelisting bypass.
+references:
+  - https://attack.mitre.org/techniques/T1218/010/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.defense_evasion
+  - attack.t1218.010
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - regsvr32
+  selection_cmdline:
+    process.command_line|contains:
+      - scrobj.dll
+      - /i:http
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate COM object registration using regsvr32

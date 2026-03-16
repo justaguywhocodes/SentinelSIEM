@@ -1,0 +1,27 @@
+title: Crontab Modification Detected
+id: a1b2c3d4-6003-4a1b-9c46-000000000046
+status: stable
+description: |
+  Detects crontab being edited or removed, which may indicate
+  persistence establishment or anti-forensics activity.
+references:
+  - https://attack.mitre.org/techniques/T1053/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.persistence
+  - attack.t1053.003
+level: medium
+logsource:
+  product: linux
+detection:
+  selection_name:
+    process.name|contains:
+      - crontab
+  selection_cmdline:
+    process.command_line|contains:
+      - -e
+      - -r
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate cron job management by administrators

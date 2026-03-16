@@ -1,0 +1,25 @@
+title: Whoami Reconnaissance Command
+id: a1b2c3d4-1007-4a1b-9c07-000000000007
+status: stable
+description: |
+  Detects execution of whoami.exe, often used by attackers for initial
+  reconnaissance after gaining access to a system.
+references:
+  - https://attack.mitre.org/techniques/T1033/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.discovery
+  - attack.t1033
+level: medium
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.name|contains:
+      - whoami
+  condition: selection
+falsepositives:
+  - System administrators checking current user context
+  - Logon scripts that log the current user

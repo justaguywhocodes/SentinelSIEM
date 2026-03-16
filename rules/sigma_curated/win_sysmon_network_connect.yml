@@ -1,0 +1,26 @@
+title: Sysmon Outbound Connection to Unusual Port
+id: a1b2c3d4-5009-4a1b-9c42-000000000042
+status: stable
+description: |
+  Detects outbound network connections to ports commonly used by
+  reverse shells and backdoor tools.
+references:
+  - https://attack.mitre.org/techniques/T1571/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1571
+level: high
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    destination.port:
+      - 4444
+      - 8888
+      - 1234
+  condition: selection
+falsepositives:
+  - Custom applications using these ports
