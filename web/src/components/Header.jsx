@@ -1,6 +1,6 @@
 import { Bars3Icon, BellIcon, SparklesIcon } from '@heroicons/react/24/outline'
-import { UserCircleIcon } from '@heroicons/react/24/solid'
 import ThemeToggle from './ThemeToggle'
+import UserMenu from './UserMenu'
 
 export default function Header({ onMobileMenuToggle }) {
   return (
@@ -46,10 +46,8 @@ export default function Header({ onMobileMenuToggle }) {
           <BellIcon className="h-5 w-5" />
         </button>
 
-        {/* User avatar placeholder */}
-        <button className="text-slate-400 hover:text-white transition-colors" title="Profile">
-          <UserCircleIcon className="h-7 w-7" />
-        </button>
+        {/* User menu */}
+        <UserMenu />
       </div>
     </header>
   )
