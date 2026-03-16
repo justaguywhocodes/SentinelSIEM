@@ -9,18 +9,25 @@ import (
 	"github.com/SentinelSIEM/sentinel-siem/cmd/sentinel-cli/commands"
 )
 
-const defaultURL = "http://localhost:8081"
+const (
+	defaultURL       = "http://localhost:8081"
+	defaultIngestURL = "http://localhost:8080"
+)
 
 func main() {
 	// Global flags.
 	var (
 		serverURL string
 		apiKey    string
+		ingestURL string
+		ingestKey string
 		jsonOut   bool
 	)
 
 	flag.StringVar(&serverURL, "server", envOrDefault("SENTINEL_URL", defaultURL), "API server URL (env: SENTINEL_URL)")
 	flag.StringVar(&apiKey, "api-key", os.Getenv("SENTINEL_API_KEY"), "API key for authentication (env: SENTINEL_API_KEY)")
+	flag.StringVar(&ingestURL, "ingest-server", envOrDefault("SENTINEL_INGEST_URL", defaultIngestURL), "Ingest server URL (env: SENTINEL_INGEST_URL)")
+	flag.StringVar(&ingestKey, "ingest-key", os.Getenv("SENTINEL_INGEST_KEY"), "API key for ingest auth (env: SENTINEL_INGEST_KEY)")
 	flag.BoolVar(&jsonOut, "json", false, "output raw JSON")
 
 	flag.Usage = func() {
@@ -30,16 +37,25 @@ Usage:
   sentinel-cli [global flags] <command> [subcommand] [flags]
 
 Global Flags:
-  --server <url>     API server URL (default: %s, env: SENTINEL_URL)
-  --api-key <key>    API key for auth (env: SENTINEL_API_KEY)
-  --json             Output raw JSON instead of formatted tables
+  --server <url>        API server URL (default: %s, env: SENTINEL_URL)
+  --api-key <key>       API key for auth (env: SENTINEL_API_KEY)
+  --ingest-server <url> Ingest server URL (default: %s, env: SENTINEL_INGEST_URL)
+  --ingest-key <key>    API key for ingest (env: SENTINEL_INGEST_KEY)
+  --json                Output raw JSON instead of formatted tables
 
 Commands:
   health                       Check API server health
+  diagnose                     Full system diagnostics
   query    <query>             Execute an ad-hoc search query
   alerts                       List recent alerts
   rules                        List detection rules
+  rules    validate            Validate rules on disk
+  rules    update              Validate + hot-reload rules
+  rules    update --init       Clone SigmaHQ + validate + reload
+  rules    reload              Trigger hot-reload on ingest server
   sources                      List configured log sources
+  ingest   test                Send a test event to ingest
+  ingest   replay <file>       Replay an NDJSON file to ingest
   users    list                List all users
   users    create              Create a new user
   users    disable <username>  Disable a user account
@@ -51,6 +67,7 @@ Commands:
 
 Examples:
   sentinel-cli health
+  sentinel-cli diagnose
   sentinel-cli --json users list
   sentinel-cli users create --username jsmith --display-name "John Smith" --role analyst
   sentinel-cli users disable jsmith
@@ -58,7 +75,11 @@ Examples:
   sentinel-cli keys create --name "ingest-prod" --scopes "ingest"
   sentinel-cli query "source_type:sentinel_edr AND event.action:process_create"
   sentinel-cli alerts --level critical
-`, defaultURL)
+  sentinel-cli rules validate
+  sentinel-cli rules update --init
+  sentinel-cli ingest test --source-type sentinel_edr
+  sentinel-cli ingest replay tests/fixtures/sentinel_edr/process_events.ndjson
+`, defaultURL, defaultIngestURL)
 	}
 
 	// Parse global flags, stopping at the first non-flag argument (command).
@@ -78,6 +99,11 @@ Examples:
 	case "health":
 		commands.RunHealth(c, jsonOut)
 
+	case "diagnose":
+		commands.RunDiagnose(c, commands.DiagnoseOpts{
+			IngestURL: ingestURL,
+		}, jsonOut)
+
 	case "query":
 		runQueryCmd(c, subArgs, jsonOut)
 
@@ -85,10 +111,13 @@ Examples:
 		runAlertsCmd(c, subArgs, jsonOut)
 
 	case "rules":
-		runRulesCmd(c, subArgs, jsonOut)
+		runRulesCmd(c, subArgs, jsonOut, ingestURL)
 
 	case "sources":
 		commands.RunSources(c, jsonOut)
+
+	case "ingest":
+		runIngestCmd(subArgs, jsonOut, ingestURL, ingestKey)
 
 	case "users":
 		runUsersCmd(c, subArgs, jsonOut)
@@ -134,14 +163,97 @@ func runAlertsCmd(c *client.Client, args []string, jsonOut bool) {
 	}, jsonOut)
 }
 
-func runRulesCmd(c *client.Client, args []string, jsonOut bool) {
-	fs := flag.NewFlagSet("rules", flag.ExitOnError)
-	size := fs.Int("size", 100, "number of rules to show")
-	fs.Parse(args)
+func runRulesCmd(c *client.Client, args []string, jsonOut bool, ingestURL string) {
+	// If no subcommand or first arg looks like a flag, list rules.
+	if len(args) == 0 || (len(args) > 0 && args[0][0] == '-') {
+		fs := flag.NewFlagSet("rules", flag.ExitOnError)
+		size := fs.Int("size", 100, "number of rules to show")
+		fs.Parse(args)
 
-	commands.RunRules(c, commands.RulesOpts{
-		Size: *size,
-	}, jsonOut)
+		commands.RunRules(c, commands.RulesOpts{
+			Size: *size,
+		}, jsonOut)
+		return
+	}
+
+	sub := args[0]
+	subArgs := args[1:]
+
+	switch sub {
+	case "validate":
+		fs := flag.NewFlagSet("rules validate", flag.ExitOnError)
+		rulesDir := fs.String("rules-dir", "rules", "path to rules directory")
+		fs.Parse(subArgs)
+
+		commands.RunRulesValidate(*rulesDir, jsonOut)
+
+	case "update":
+		fs := flag.NewFlagSet("rules update", flag.ExitOnError)
+		rulesDir := fs.String("rules-dir", "rules", "path to rules directory")
+		init := fs.Bool("init", false, "clone SigmaHQ rules first")
+		initRepo := fs.String("repo", "", "custom git repo URL for --init")
+		fs.Parse(subArgs)
+
+		commands.RunRulesUpdate(c, ingestURL, commands.RulesUpdateOpts{
+			RulesDir: *rulesDir,
+			Init:     *init,
+			InitRepo: *initRepo,
+		}, jsonOut)
+
+	case "reload":
+		commands.RunRulesReload(c, ingestURL, jsonOut)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown rules subcommand: %s\n", sub)
+		fmt.Fprintf(os.Stderr, "Usage: sentinel-cli rules [validate|update|reload] [flags]\n")
+		os.Exit(1)
+	}
+}
+
+func runIngestCmd(args []string, jsonOut bool, ingestURL, ingestKey string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: sentinel-cli ingest <test|replay> [flags]\n")
+		os.Exit(1)
+	}
+
+	sub := args[0]
+	subArgs := args[1:]
+
+	switch sub {
+	case "test":
+		fs := flag.NewFlagSet("ingest test", flag.ExitOnError)
+		sourceType := fs.String("source-type", "sentinel_edr", "source_type for test event")
+		fs.Parse(subArgs)
+
+		commands.RunIngestTest(commands.IngestTestOpts{
+			IngestURL:  ingestURL,
+			IngestKey:  ingestKey,
+			SourceType: *sourceType,
+		}, jsonOut)
+
+	case "replay":
+		fs := flag.NewFlagSet("ingest replay", flag.ExitOnError)
+		batchSize := fs.Int("batch-size", 500, "events per batch")
+		fs.Parse(subArgs)
+
+		file := fs.Arg(0)
+		if file == "" {
+			fmt.Fprintf(os.Stderr, "Usage: sentinel-cli ingest replay <file.ndjson> [--batch-size <n>]\n")
+			os.Exit(1)
+		}
+
+		commands.RunIngestReplay(commands.IngestReplayOpts{
+			IngestURL: ingestURL,
+			IngestKey: ingestKey,
+			File:      file,
+			BatchSize: *batchSize,
+		}, jsonOut)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown ingest subcommand: %s\n", sub)
+		fmt.Fprintf(os.Stderr, "Usage: sentinel-cli ingest <test|replay> [flags]\n")
+		os.Exit(1)
+	}
 }
 
 func runUsersCmd(c *client.Client, args []string, jsonOut bool) {
