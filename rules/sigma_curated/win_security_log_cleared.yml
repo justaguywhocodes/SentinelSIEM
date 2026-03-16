@@ -1,0 +1,25 @@
+title: Security Log Cleared
+id: a1b2c3d4-5004-4a1b-9c37-000000000037
+status: stable
+description: |
+  Detects clearing of security event logs, a common anti-forensics
+  technique used to cover tracks after compromise.
+references:
+  - https://attack.mitre.org/techniques/T1070/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.defense_evasion
+  - attack.t1070.001
+level: critical
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - log_cleared
+      - audit_log
+  condition: selection
+falsepositives:
+  - Scheduled log rotation or maintenance by administrators

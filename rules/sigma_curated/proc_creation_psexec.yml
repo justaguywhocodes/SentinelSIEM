@@ -1,0 +1,27 @@
+title: PsExec Remote Execution
+id: a1b2c3d4-1001-4a1b-9c01-000000000001
+status: stable
+description: |
+  Detects PsExec usage for remote command execution, commonly used
+  for lateral movement within compromised networks.
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - psexec
+  selection_cmdline:
+    process.command_line|contains:
+      - \\\\
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate admin remote maintenance using PsExec

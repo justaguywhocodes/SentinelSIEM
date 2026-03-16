@@ -1,0 +1,26 @@
+title: PUA or Hacktool Detected by Antivirus
+id: a1b2c3d4-2005-4a1b-9c20-000000000020
+status: stable
+description: |
+  Detects potentially unwanted applications or hacking tools identified
+  by antivirus, which may indicate unauthorized security tool usage.
+references:
+  - https://attack.mitre.org/techniques/T1588/002/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.resource_development
+  - attack.t1588.002
+level: high
+logsource:
+  category: malware
+  product: sentinel_av
+detection:
+  selection:
+    av.signature.name|contains:
+      - HackTool
+      - PUA
+      - Mimikatz
+  condition: selection
+falsepositives:
+  - Authorized IT security tools used for administration

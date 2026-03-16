@@ -1,0 +1,31 @@
+title: Net.exe User and Group Enumeration
+id: a1b2c3d4-1008-4a1b-9c08-000000000008
+status: stable
+description: |
+  Detects net.exe or net1.exe being used to enumerate users and groups,
+  a common reconnaissance technique during post-exploitation.
+references:
+  - https://attack.mitre.org/techniques/T1087/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.discovery
+  - attack.t1087.001
+level: medium
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - net.exe
+      - net1.exe
+  selection_cmdline:
+    process.command_line|contains:
+      - user
+      - group
+      - localgroup
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate system administration tasks
+  - Help desk verifying user group membership

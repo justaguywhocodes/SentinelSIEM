@@ -1,0 +1,26 @@
+title: New User Account Created
+id: a1b2c3d4-5002-4a1b-9c35-000000000035
+status: stable
+description: |
+  Detects creation of new user accounts which may indicate an attacker
+  establishing persistence via backdoor accounts.
+references:
+  - https://attack.mitre.org/techniques/T1136/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.persistence
+  - attack.t1136.001
+level: medium
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - account_created
+      - user_added
+  condition: selection
+falsepositives:
+  - Legitimate account creation by IT administrators
+  - Automated provisioning systems

@@ -1,0 +1,26 @@
+title: PowerShell Encoded Command Execution
+id: a1b2c3d4-1002-4a1b-9c02-000000000002
+status: stable
+description: |
+  Detects PowerShell execution with encoded commands, a common technique
+  used to obfuscate malicious scripts and evade detection.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.execution
+  - attack.t1059.001
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.command_line|contains:
+      - -enc
+      - -EncodedCommand
+      - FromBase64String
+  condition: selection
+falsepositives:
+  - Legitimate administrative scripts using encoded commands

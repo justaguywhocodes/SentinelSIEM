@@ -1,0 +1,23 @@
+title: PII Policy Violation Detected
+id: a1b2c3d4-3002-4a1b-9c22-000000000022
+status: stable
+description: |
+  Detects personally identifiable information being handled in violation
+  of data loss prevention policies.
+references:
+  - https://attack.mitre.org/techniques/T1530/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.collection
+  - attack.t1530
+level: high
+logsource:
+  product: sentinel_dlp
+detection:
+  selection:
+    dlp.policy.name|contains:
+      - PII
+  condition: selection
+falsepositives:
+  - HR or legal staff handling PII as part of normal duties

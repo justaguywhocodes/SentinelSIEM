@@ -1,0 +1,25 @@
+title: Sysmon File Created in Startup Folder
+id: a1b2c3d4-5010-4a1b-9c43-000000000043
+status: stable
+description: |
+  Detects files being created in the Windows Startup folder, a common
+  persistence mechanism for malware.
+references:
+  - https://attack.mitre.org/techniques/T1547/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.persistence
+  - attack.t1547.001
+level: high
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    file.path|contains:
+      - Startup
+      - Start Menu
+  condition: selection
+falsepositives:
+  - Legitimate applications adding themselves to startup

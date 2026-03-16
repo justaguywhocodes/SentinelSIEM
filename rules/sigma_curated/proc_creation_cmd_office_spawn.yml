@@ -1,0 +1,29 @@
+title: Command Prompt Spawned by Office Application
+id: a1b2c3d4-1012-4a1b-9c12-000000000012
+status: stable
+description: |
+  Detects cmd.exe being spawned by Microsoft Office applications, a strong
+  indicator of macro-based malware execution.
+references:
+  - https://attack.mitre.org/techniques/T1204/002/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.execution
+  - attack.t1204.002
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    process.parent.name|contains:
+      - winword
+      - excel
+      - powerpnt
+  selection_child:
+    process.name|contains:
+      - cmd.exe
+  condition: selection_parent and selection_child
+falsepositives:
+  - Legitimate Office macros that invoke command-line tools

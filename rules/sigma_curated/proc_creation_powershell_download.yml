@@ -1,0 +1,31 @@
+title: PowerShell Download Cradle
+id: a1b2c3d4-1014-4a1b-9c14-000000000014
+status: stable
+description: |
+  Detects PowerShell commands that download content from the internet,
+  commonly used in initial access and payload staging.
+references:
+  - https://attack.mitre.org/techniques/T1059/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.execution
+  - attack.command_and_control
+  - attack.t1059.001
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    process.command_line|contains:
+      - Invoke-WebRequest
+      - wget
+      - curl
+      - DownloadFile
+      - DownloadString
+      - IWR
+      - Net.WebClient
+  condition: selection
+falsepositives:
+  - Legitimate PowerShell scripts downloading updates or packages

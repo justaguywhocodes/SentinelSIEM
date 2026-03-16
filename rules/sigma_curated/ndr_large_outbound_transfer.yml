@@ -1,0 +1,22 @@
+title: Large Outbound Data Transfer
+id: a1b2c3d4-4002-4a1b-9c27-000000000027
+status: stable
+description: |
+  Detects large outbound data transfers that may indicate data
+  exfiltration or unauthorized bulk data movement.
+references:
+  - https://attack.mitre.org/techniques/T1048/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.exfiltration
+  - attack.t1048
+level: medium
+logsource:
+  product: sentinel_ndr
+detection:
+  selection:
+    ndr.session.bytes_sent|gt: 500000
+  condition: selection
+falsepositives:
+  - Legitimate large file uploads or cloud backups

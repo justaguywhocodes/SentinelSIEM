@@ -1144,3 +1144,68 @@ level: high
 	return ""
 }
 
+// TestLoadAllProjectRules verifies that all rules from both sigma_curated and
+// sentinel_portfolio directories parse and compile successfully.
+// Acceptance criteria: 50 sigma_curated + 10 sentinel_portfolio files = 60 total.
+func TestLoadAllProjectRules(t *testing.T) {
+	projectRoot := filepath.Join("..", "..", "rules")
+
+	// Load sigma_curated rules.
+	sigmaRules, sigmaErrs := LoadRulesFromDir(filepath.Join(projectRoot, "sigma_curated"))
+	for _, e := range sigmaErrs {
+		t.Errorf("sigma_curated parse error: %v", e)
+	}
+	if len(sigmaRules) != 50 {
+		t.Fatalf("expected 50 sigma_curated rules, got %d", len(sigmaRules))
+	}
+
+	// Load sentinel_portfolio rules.
+	portfolioRules, portfolioErrs := LoadRulesFromDir(filepath.Join(projectRoot, "sentinel_portfolio"))
+	for _, e := range portfolioErrs {
+		t.Errorf("sentinel_portfolio parse error: %v", e)
+	}
+	if len(portfolioRules) < 30 {
+		t.Fatalf("expected at least 30 sentinel_portfolio rules (multi-doc YAML), got %d", len(portfolioRules))
+	}
+
+	// Verify all rules compile in the engine.
+	allRules := append(sigmaRules, portfolioRules...)
+	reg := NewRuleRegistry(allRules)
+	single := reg.SingleEventRules()
+	corr := reg.CorrelationRules()
+
+	if len(single) == 0 {
+		t.Error("expected single-event rules")
+	}
+	if len(corr) == 0 {
+		t.Error("expected correlation rules")
+	}
+
+	// Verify each single-event rule with a detection block compiles.
+	var compileErrors int
+	for _, r := range single {
+		if r.Detection == nil {
+			continue // Correlation metadata-only documents have no detection.
+		}
+		if _, err := CompileDetection(r.Detection); err != nil {
+			t.Errorf("compile error for %q (%s): %v", r.Title, r.ID, err)
+			compileErrors++
+		}
+	}
+	if compileErrors > 0 {
+		t.Fatalf("%d rules failed to compile", compileErrors)
+	}
+
+	// Verify unique IDs.
+	idSet := make(map[string]string)
+	for _, r := range allRules {
+		if prev, dup := idSet[r.ID]; dup {
+			t.Errorf("duplicate rule ID %q: %q and %q", r.ID, prev, r.Title)
+		}
+		idSet[r.ID] = r.Title
+	}
+
+	t.Logf("Loaded %d total rules: %d sigma_curated + %d sentinel_portfolio (%d single-event, %d correlation)",
+		len(allRules), len(sigmaRules), len(portfolioRules), len(single), len(corr))
+}
+

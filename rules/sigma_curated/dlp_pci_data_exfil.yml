@@ -1,0 +1,27 @@
+title: PCI Data Exfiltration Detected
+id: a1b2c3d4-3001-4a1b-9c21-000000000021
+status: stable
+description: |
+  Detects PCI cardholder data being exfiltrated via upload or email
+  channels, violating data protection policies.
+references:
+  - https://attack.mitre.org/techniques/T1041/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.exfiltration
+  - attack.t1041
+level: critical
+logsource:
+  product: sentinel_dlp
+detection:
+  selection_policy:
+    dlp.policy.name|contains:
+      - PCI
+  selection_channel:
+    dlp.channel:
+      - upload
+      - email
+  condition: selection_policy and selection_channel
+falsepositives:
+  - Authorized payment processing activities

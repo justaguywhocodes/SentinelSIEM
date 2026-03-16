@@ -1,0 +1,23 @@
+title: Financial Data Leak Detected
+id: a1b2c3d4-3005-4a1b-9c25-000000000025
+status: stable
+description: |
+  Detects financial data being shared in violation of DLP policies,
+  potentially exposing sensitive fiscal information.
+references:
+  - https://attack.mitre.org/techniques/T1041/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.exfiltration
+  - attack.t1041
+level: high
+logsource:
+  product: sentinel_dlp
+detection:
+  selection:
+    dlp.policy.name|contains:
+      - Financial
+  condition: selection
+falsepositives:
+  - Finance department sharing reports with authorized recipients

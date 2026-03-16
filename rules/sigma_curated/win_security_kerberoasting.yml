@@ -1,0 +1,24 @@
+title: Kerberoasting - TGS Request with RC4 Encryption
+id: a1b2c3d4-5007-4a1b-9c40-000000000040
+status: stable
+description: |
+  Detects Kerberos TGS ticket requests that may indicate Kerberoasting
+  attacks targeting service account credentials.
+references:
+  - https://attack.mitre.org/techniques/T1558/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.credential_access
+  - attack.t1558.003
+level: high
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - kerberos_tgs
+  condition: selection
+falsepositives:
+  - Legacy applications requiring RC4 Kerberos encryption

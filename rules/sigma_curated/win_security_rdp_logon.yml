@@ -1,0 +1,25 @@
+title: RDP Remote Logon Detected
+id: a1b2c3d4-5006-4a1b-9c39-000000000039
+status: stable
+description: |
+  Detects remote desktop logon sessions, which may indicate lateral
+  movement or unauthorized remote access.
+references:
+  - https://attack.mitre.org/techniques/T1021/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.lateral_movement
+  - attack.t1021.001
+level: medium
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    event.action|contains:
+      - logon-remote
+      - logon-10
+  condition: selection
+falsepositives:
+  - Legitimate remote administration via RDP

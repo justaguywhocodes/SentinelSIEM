@@ -1,0 +1,28 @@
+title: Connection to Known Tor Network Ports
+id: a1b2c3d4-4003-4a1b-9c28-000000000028
+status: stable
+description: |
+  Detects network connections to ports commonly associated with the
+  Tor anonymity network, which may indicate evasion or data exfiltration.
+references:
+  - https://attack.mitre.org/techniques/T1090/003/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1090.003
+level: high
+logsource:
+  category: network_connection
+  product: sentinel_ndr
+detection:
+  selection:
+    destination.port:
+      - 9001
+      - 9030
+      - 9050
+      - 9051
+      - 9150
+  condition: selection
+falsepositives:
+  - Authorized security research using Tor

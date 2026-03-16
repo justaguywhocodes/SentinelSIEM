@@ -1,0 +1,22 @@
+title: DNS Tunneling - Long Subdomain Query
+id: a1b2c3d4-4006-4a1b-9c31-000000000031
+status: stable
+description: |
+  Detects DNS queries with unusually long subdomains that may indicate
+  DNS tunneling for data exfiltration or C2 communication.
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.command_and_control
+  - attack.t1071.004
+level: high
+logsource:
+  category: dns
+detection:
+  selection:
+    dns.question.name|regex: "^[a-z0-9]{30,}\\."
+  condition: selection
+falsepositives:
+  - CDN or cloud services using long hash-based subdomains

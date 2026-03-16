@@ -1,0 +1,29 @@
+title: BITSAdmin Download Activity
+id: a1b2c3d4-1010-4a1b-9c10-000000000010
+status: stable
+description: |
+  Detects BITSAdmin being used to download files, a living-off-the-land
+  technique for staging payloads.
+references:
+  - https://attack.mitre.org/techniques/T1197/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.defense_evasion
+  - attack.persistence
+  - attack.t1197
+level: high
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_name:
+    process.name|contains:
+      - bitsadmin
+  selection_cmdline:
+    process.command_line|contains:
+      - transfer
+      - download
+  condition: selection_name and selection_cmdline
+falsepositives:
+  - Legitimate software update mechanisms using BITS

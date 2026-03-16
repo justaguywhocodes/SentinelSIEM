@@ -1,0 +1,25 @@
+title: Sysmon Process Creation with Suspicious Parent
+id: a1b2c3d4-5008-4a1b-9c41-000000000041
+status: stable
+description: |
+  Detects process creation events where the parent process is a known
+  execution proxy such as WMI or PowerShell remoting hosts.
+references:
+  - https://attack.mitre.org/techniques/T1047/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.execution
+  - attack.t1047
+level: high
+logsource:
+  product: windows
+  service: sysmon
+detection:
+  selection:
+    process.parent.name|contains:
+      - wmiprvse
+      - wsmprovhost
+  condition: selection
+falsepositives:
+  - Legitimate WMI or PowerShell remoting administration

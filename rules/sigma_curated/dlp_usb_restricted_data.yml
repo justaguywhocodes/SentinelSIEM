@@ -1,0 +1,23 @@
+title: Restricted Data Copied to USB Device
+id: a1b2c3d4-3004-4a1b-9c24-000000000024
+status: stable
+description: |
+  Detects restricted-classified data being copied to USB removable media,
+  indicating potential data theft or policy violation.
+references:
+  - https://attack.mitre.org/techniques/T1052/001/
+author: SentinelSIEM (SigmaHQ)
+date: 2026/03/16
+tags:
+  - attack.exfiltration
+  - attack.t1052.001
+level: critical
+logsource:
+  product: sentinel_dlp
+detection:
+  selection:
+    dlp.classification: restricted
+    dlp.channel: usb
+  condition: selection
+falsepositives:
+  - Authorized data transfers to encrypted USB devices
