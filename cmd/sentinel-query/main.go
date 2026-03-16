@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/SentinelSIEM/sentinel-siem/internal/auth"
 	"github.com/SentinelSIEM/sentinel-siem/internal/common"
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
@@ -43,6 +44,12 @@ func main() {
 	if err := esStore.EnsureSourceIndex(ctx); err != nil {
 		log.Printf("Warning: failed to ensure source index: %v", err)
 	}
+	if err := esStore.EnsureUserIndex(ctx); err != nil {
+		log.Printf("Warning: failed to ensure user index: %v", err)
+	}
+	if err := esStore.EnsureSessionIndex(ctx); err != nil {
+		log.Printf("Warning: failed to ensure session index: %v", err)
+	}
 
 	// Initialize API key store.
 	apiKeyIndex := esStore.Prefix() + "-api-keys"
@@ -50,6 +57,13 @@ func main() {
 	if err := keyStore.LoadAll(ctx); err != nil {
 		log.Printf("Warning: failed to load API keys: %v", err)
 	}
+
+	// Initialize JWT manager.
+	jwtSecret := []byte(cfg.Auth.JWTSecret)
+	jwtManager := auth.NewJWTManager(jwtSecret)
+
+	// Initialize auth service.
+	authService := auth.NewService(esStore, jwtManager, esStore.UserIndexName(), esStore.SessionIndexName())
 
 	// Initialize normalization engine (for parser testing).
 	registry := normalize.NewRegistry()
@@ -68,6 +82,9 @@ func main() {
 	// Create query API handler.
 	apiHandler := query.NewAPIHandler(searcher, defaultIndex)
 
+	// Create auth API handler.
+	authHandler := auth.NewAPIHandler(authService)
+
 	// Build router with middleware.
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -80,18 +97,35 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.Query.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "X-API-Key"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "X-API-Key", "Authorization"},
 		ExposedHeaders:   []string{"X-Request-Id"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
-	// Routes.
+	// Public routes (no auth required).
 	r.Get("/api/v1/health", apiHandler.HandleHealth)
-	r.Post("/api/v1/query", apiHandler.HandleQuery)
+	r.Post("/api/v1/auth/login", authHandler.HandleLogin)
+	r.Post("/api/v1/auth/refresh", authHandler.HandleRefresh)
+	r.Get("/api/v1/auth/setup-required", authHandler.HandleSetupRequired)
+	r.Post("/api/v1/auth/setup", authHandler.HandleFirstRunSetup)
 
-	// Source management routes.
-	sourceHandler.Routes(r)
+	// Protected routes (JWT or API key required).
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(jwtManager, keyStore))
+
+		// Query.
+		r.Post("/api/v1/query", apiHandler.HandleQuery)
+
+		// Auth management.
+		r.Post("/api/v1/auth/logout", authHandler.HandleLogout)
+		r.Get("/api/v1/auth/profile", authHandler.HandleGetProfile)
+		r.Put("/api/v1/auth/profile", authHandler.HandleUpdateProfile)
+		r.Post("/api/v1/auth/password", authHandler.HandleChangePassword)
+
+		// Source management routes.
+		sourceHandler.Routes(r)
+	})
 
 	// Server.
 	addr := fmt.Sprintf("%s:%d", cfg.Query.Addr, cfg.Query.Port)
