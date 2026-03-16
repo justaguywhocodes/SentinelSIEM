@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import usePageTitle from '../hooks/usePageTitle'
 import { subDays } from 'date-fns'
 import QueryBar from '../components/QueryBar'
 import TimePicker from '../components/TimePicker'
@@ -10,6 +11,7 @@ import ContextMenu from '../components/ContextMenu'
 import { generateMockResults, generateHistogramBuckets, computeFieldStats } from '../data/mockHuntResults'
 
 export default function Hunt() {
+  usePageTitle('Hunt')
   const [query, setQuery] = useState('')
   const [timeRange, setTimeRange] = useState({ from: subDays(new Date(), 1), to: new Date() })
   const [refreshInterval, setRefreshInterval] = useState(0)

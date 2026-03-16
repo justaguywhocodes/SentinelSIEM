@@ -1,6 +1,8 @@
 import { Cog6ToothIcon } from '@heroicons/react/24/outline'
+import usePageTitle from '../hooks/usePageTitle'
 
 export default function Settings() {
+  usePageTitle('Settings')
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">

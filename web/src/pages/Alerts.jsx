@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { BellAlertIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import usePageTitle from '../hooks/usePageTitle'
 import {
   useReactTable,
   getCoreRowModel,
@@ -138,6 +139,7 @@ function FilterDropdown({ label, value, options, onChange }) {
 }
 
 export default function Alerts() {
+  usePageTitle('Alerts')
   const [data, setData] = useState(mockAlerts)
   const [sorting, setSorting] = useState([{ id: 'timestamp', desc: true }])
   const [rowSelection, setRowSelection] = useState({})

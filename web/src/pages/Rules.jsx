@@ -1,6 +1,8 @@
 import { ShieldCheckIcon } from '@heroicons/react/24/outline'
+import usePageTitle from '../hooks/usePageTitle'
 
 export default function Rules() {
+  usePageTitle('Rules')
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">

@@ -1,4 +1,5 @@
 import { HomeIcon } from '@heroicons/react/24/outline'
+import usePageTitle from '../hooks/usePageTitle'
 import KPICard from '../components/KPICard'
 import AlertTrendChart from '../components/AlertTrendChart'
 import TopRulesChart from '../components/TopRulesChart'
@@ -19,6 +20,7 @@ const statusDot = {
 }
 
 export default function Overview() {
+  usePageTitle('Overview')
   return (
     <div className="space-y-4">
       {/* Header */}
