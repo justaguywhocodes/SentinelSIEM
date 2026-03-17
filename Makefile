@@ -6,7 +6,7 @@ MODULE := github.com/SentinelSIEM/sentinel-siem
 all: build
 
 build:
-	-@if not exist $(BINDIR) mkdir $(BINDIR)
+	@mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/sentinel-ingest.exe ./cmd/sentinel-ingest
 	go build -o $(BINDIR)/sentinel-correlate.exe ./cmd/sentinel-correlate
 	go build -o $(BINDIR)/sentinel-query.exe ./cmd/sentinel-query
@@ -20,8 +20,8 @@ lint:
 	go vet ./...
 
 clean:
-	-@if exist $(BINDIR) rmdir /s /q $(BINDIR)
-	-@docker compose down -v 2>nul || docker-compose down -v 2>nul || echo Docker not available
+	rm -rf $(BINDIR)
+	-@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || echo Docker not available
 	@echo Cleaned build artifacts and Docker volumes
 
 # install: Full installation — build binaries, start Docker, apply ES templates,
