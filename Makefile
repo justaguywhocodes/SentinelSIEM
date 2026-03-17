@@ -1,3 +1,4 @@
+SHELL := bash
 .PHONY: build test clean lint run-ingest run-correlate run-query install dev demo dashboard
 
 BINDIR := bin
