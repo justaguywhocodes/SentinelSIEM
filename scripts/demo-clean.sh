@@ -51,12 +51,12 @@ for user in "${DEMO_USERS[@]}"; do
 done
 
 # ─── Step 2: Delete demo data from Elasticsearch ────────────────────────────
-info "Deleting demo event and alert indices..."
+info "Deleting demo data and user indices..."
 # Allow wildcard index deletion (disabled by default in ES 8.x).
 curl -s -X PUT "${ES_HOST}/_cluster/settings" \
     -H "Content-Type: application/json" \
     -d '{"transient":{"action.destructive_requires_name":false}}' >/dev/null 2>&1
-for pattern in "sentinel-events-*" "sentinel-alerts-*" "sentinel-dlq-*"; do
+for pattern in "sentinel-events-*" "sentinel-alerts-*" "sentinel-dlq-*" "sentinel-users" "sentinel-sessions" "sentinel-api-keys"; do
     result=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "${ES_HOST}/${pattern}" 2>/dev/null)
     if [[ "$result" == "200" ]]; then
         ok "Deleted indices: $pattern"
