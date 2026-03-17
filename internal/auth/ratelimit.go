@@ -13,6 +13,7 @@ type LoginRateLimiter struct {
 	attempts    map[string][]time.Time
 	maxAttempts int
 	window      time.Duration
+	stopCh      chan struct{}
 }
 
 // NewLoginRateLimiter creates a rate limiter for login attempts.
@@ -21,10 +22,16 @@ func NewLoginRateLimiter(maxAttempts int, window time.Duration) *LoginRateLimite
 		attempts:    make(map[string][]time.Time),
 		maxAttempts: maxAttempts,
 		window:      window,
+		stopCh:      make(chan struct{}),
 	}
 	// Background cleanup of stale entries every 5 minutes.
 	go rl.cleanup()
 	return rl
+}
+
+// Stop terminates the background cleanup goroutine.
+func (rl *LoginRateLimiter) Stop() {
+	close(rl.stopCh)
 }
 
 // Allow checks if the IP is allowed to attempt a login.
@@ -75,7 +82,12 @@ func (rl *LoginRateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	for {
+		select {
+		case <-rl.stopCh:
+			return
+		case <-ticker.C:
+		}
 		rl.mu.Lock()
 		now := time.Now()
 		cutoff := now.Add(-rl.window)

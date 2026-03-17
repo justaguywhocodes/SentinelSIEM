@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SentinelSIEM/sentinel-siem/internal/common"
@@ -24,6 +26,11 @@ type Pipeline struct {
 	ruleEvaluator  correlate.RuleEvaluator
 	dedupCache     *correlate.DedupCache
 	prefix         string
+
+	// In-flight tracking for graceful shutdown.
+	inflight sync.WaitGroup
+	// Total events processed (monotonic counter).
+	processed atomic.Int64
 }
 
 // NewPipeline creates an ingestion pipeline.
@@ -45,10 +52,28 @@ func NewPipeline(engine *normalize.Engine, indexer store.Indexer, prefix string,
 // Handle is the EventHandler callback for HTTPListener. It normalizes a batch
 // of raw events, indexes them into Elasticsearch, evaluates Sigma rules, and
 // indexes any resulting alerts.
+// Drain waits for all in-flight event batches to finish processing.
+// It should be called during graceful shutdown after new event acceptance
+// has been stopped (HTTP server shutdown / syslog listener close).
+func (p *Pipeline) Drain() {
+	p.inflight.Wait()
+}
+
+// Processed returns the total number of events processed since startup.
+func (p *Pipeline) Processed() int64 {
+	return p.processed.Load()
+}
+
+// Handle is the EventHandler callback for HTTPListener. It normalizes a batch
+// of raw events, indexes them into Elasticsearch, evaluates Sigma rules, and
+// indexes any resulting alerts.
 func (p *Pipeline) Handle(rawEvents []json.RawMessage) {
 	if len(rawEvents) == 0 {
 		return
 	}
+
+	p.inflight.Add(1)
+	defer p.inflight.Done()
 
 	// Normalize.
 	events, errs := p.engine.NormalizeBatch(rawEvents)
@@ -70,6 +95,8 @@ func (p *Pipeline) Handle(rawEvents []json.RawMessage) {
 	for index, batch := range groups {
 		if err := p.indexer.BulkIndex(ctx, index, batch); err != nil {
 			log.Printf("[pipeline] indexing error for %s: %v", index, err)
+		} else {
+			p.processed.Add(int64(len(batch)))
 		}
 	}
 
