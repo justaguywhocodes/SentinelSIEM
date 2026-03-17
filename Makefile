@@ -1,4 +1,3 @@
-SHELL := bash
 .PHONY: build test clean lint run-ingest run-correlate run-query install dev demo dashboard
 
 BINDIR := bin
@@ -7,7 +6,6 @@ MODULE := github.com/SentinelSIEM/sentinel-siem
 all: build
 
 build:
-	@mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/sentinel-ingest.exe ./cmd/sentinel-ingest
 	go build -o $(BINDIR)/sentinel-correlate.exe ./cmd/sentinel-correlate
 	go build -o $(BINDIR)/sentinel-query.exe ./cmd/sentinel-query
@@ -21,9 +19,9 @@ lint:
 	go vet ./...
 
 clean:
-	rm -rf $(BINDIR)
-	-@docker compose down -v 2>/dev/null || docker-compose down -v 2>/dev/null || echo Docker not available
-	@echo Cleaned build artifacts and Docker volumes
+	go clean
+	-if exist $(BINDIR) rmdir /s /q $(BINDIR)
+	@echo Cleaned build artifacts
 
 # install: Full installation — build binaries, start Docker, apply ES templates,
 # create admin user, print credentials and dashboard URL.
