@@ -1,4 +1,4 @@
-.PHONY: build test clean lint run-ingest run-correlate run-query install dev demo dashboard
+.PHONY: build test clean lint run-ingest run-correlate run-query install dev demo demo-clean dashboard
 
 BINDIR := bin
 MODULE := github.com/SentinelSIEM/sentinel-siem
@@ -37,6 +37,10 @@ dev: build
 # fixture datasets + trigger correlation rules + populate dashboard.
 demo: build
 	bash scripts/demo.sh
+
+# demo-clean: Remove demo accounts, delete demo indices, stop services.
+demo-clean:
+	bash scripts/demo-clean.sh
 
 # dashboard: Build the React dashboard for production.
 dashboard:
