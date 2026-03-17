@@ -52,10 +52,19 @@ done
 
 # ─── Step 2: Delete demo data from Elasticsearch ────────────────────────────
 info "Deleting demo event and alert indices..."
+# Allow wildcard index deletion (disabled by default in ES 8.x).
+curl -s -X PUT "${ES_HOST}/_cluster/settings" \
+    -H "Content-Type: application/json" \
+    -d '{"transient":{"action.destructive_requires_name":false}}' >/dev/null 2>&1
 for pattern in "sentinel-events-*" "sentinel-alerts-*" "sentinel-dlq-*"; do
-    curl -s -X DELETE "${ES_HOST}/${pattern}" 2>/dev/null \
-        && ok "Deleted indices: $pattern" \
-        || warn "Could not delete $pattern (ES may not be running)"
+    result=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "${ES_HOST}/${pattern}" 2>/dev/null)
+    if [[ "$result" == "200" ]]; then
+        ok "Deleted indices: $pattern"
+    elif [[ "$result" == "404" ]]; then
+        ok "No indices matching: $pattern"
+    else
+        warn "Could not delete $pattern (HTTP $result)"
+    fi
 done
 
 # ─── Step 3: Stop services ─────────────────────────────────────────────────
