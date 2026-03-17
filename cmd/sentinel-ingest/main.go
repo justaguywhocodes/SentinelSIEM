@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
 	"github.com/SentinelSIEM/sentinel-siem/internal/correlate"
 	"github.com/SentinelSIEM/sentinel-siem/internal/ingest"
+	"github.com/SentinelSIEM/sentinel-siem/internal/lifecycle"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize/parsers"
 	"github.com/SentinelSIEM/sentinel-siem/internal/store"
@@ -124,10 +122,7 @@ func main() {
 		log.Printf("Warning: syslog TLS listener failed to start: %v", err)
 	}
 
-	// Graceful shutdown.
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
-
+	// Start HTTP server in background.
 	go func() {
 		fmt.Printf("sentinel-ingest listening on %s\n", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -135,24 +130,37 @@ func main() {
 		}
 	}()
 
-	<-done
-	fmt.Println("\nShutting down...")
+	// Register ordered shutdown phases.
+	// Order: stop accepting → drain in-flight → flush state → close background workers.
+	sm := lifecycle.NewShutdownManager(10 * time.Second)
 
-	// Stop correlation state manager.
-	stateManager.Stop()
+	sm.Register("stop HTTP server", func(ctx context.Context) error {
+		return srv.Shutdown(ctx)
+	})
 
-	// Stop rule loader file watcher.
-	ruleLoader.Stop()
+	sm.Register("stop syslog listeners", func(ctx context.Context) error {
+		syslogCancel()
+		return syslogListener.Stop()
+	})
 
-	// Stop syslog listener.
-	syslogCancel()
-	syslogListener.Stop()
+	sm.Register("drain in-flight events", func(_ context.Context) error {
+		pipeline.Drain()
+		log.Printf("[shutdown] %d events processed during lifetime", pipeline.Processed())
+		return nil
+	})
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
+	sm.Register("stop correlation state manager", func(_ context.Context) error {
+		stateManager.Stop()
+		return nil
+	})
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Shutdown error: %v", err)
+	sm.Register("stop rule loader", func(_ context.Context) error {
+		ruleLoader.Stop()
+		return nil
+	})
+
+	// Block until signal, then run all phases.
+	if err := sm.WaitForSignal(); err != nil {
+		log.Printf("Shutdown completed with errors: %v", err)
 	}
-	fmt.Println("Stopped.")
 }

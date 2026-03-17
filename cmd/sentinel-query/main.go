@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +16,7 @@ import (
 	"github.com/SentinelSIEM/sentinel-siem/internal/cases"
 	"github.com/SentinelSIEM/sentinel-siem/internal/common"
 	"github.com/SentinelSIEM/sentinel-siem/internal/config"
+	"github.com/SentinelSIEM/sentinel-siem/internal/lifecycle"
 	"github.com/SentinelSIEM/sentinel-siem/internal/normalize"
 	"github.com/SentinelSIEM/sentinel-siem/internal/query"
 	"github.com/SentinelSIEM/sentinel-siem/internal/sources"
@@ -177,10 +175,7 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Graceful shutdown.
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
-
+	// Start HTTP server in background.
 	go func() {
 		fmt.Printf("sentinel-query listening on %s\n", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -188,16 +183,22 @@ func main() {
 		}
 	}()
 
-	<-done
-	fmt.Println("\nShutting down...")
+	// Register ordered shutdown phases.
+	sm := lifecycle.NewShutdownManager(10 * time.Second)
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
+	sm.Register("stop HTTP server", func(ctx context.Context) error {
+		return srv.Shutdown(ctx)
+	})
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Shutdown error: %v", err)
+	sm.Register("flush login rate limiter", func(_ context.Context) error {
+		loginLimiter.Stop()
+		return nil
+	})
+
+	// Block until signal, then run all phases.
+	if err := sm.WaitForSignal(); err != nil {
+		log.Printf("Shutdown completed with errors: %v", err)
 	}
-	fmt.Println("Stopped.")
 }
 
 // storeAdapter adapts store.Store to the query.Searcher interface,
