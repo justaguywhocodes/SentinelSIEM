@@ -56,7 +56,7 @@ QUERY_URL="http://localhost:${QUERY_PORT}"
 # ─── Step 1: Verify services are running ──────────────────────────────────────
 info "Checking services..."
 STARTED_SERVICES=false
-if ! curl -s "http://localhost:${INGEST_PORT}/healthz" 2>/dev/null | grep -q "ok"; then
+if ! curl -s "http://localhost:${INGEST_PORT}/metrics" 2>/dev/null | grep -q "sentinel"; then
     info "Ingest not running, starting services..."
     "$BINDIR/sentinel-ingest${EXT}" --config sentinel.toml &
     INGEST_PID=$!
