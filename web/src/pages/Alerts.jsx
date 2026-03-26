@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BellAlertIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import usePageTitle from '../hooks/usePageTitle'
 import {
@@ -11,7 +12,36 @@ import {
 import SeverityBadge, { getSeverityBorderClass } from '../components/SeverityBadge'
 import StatusBadge from '../components/StatusBadge'
 import AlertFlyout from '../components/AlertFlyout'
-import { mockAlerts } from '../data/mockAlerts'
+import { api } from '../lib/api'
+
+function flattenObject(obj, skipKeys = [], prefix = '') {
+  const entries = []
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (skipKeys.includes(k)) continue
+    const key = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      entries.push(...flattenObject(v, skipKeys, key))
+    } else if (Array.isArray(v)) {
+      // Flatten arrays of objects, join arrays of primitives.
+      const hasObjects = v.some((item) => item && typeof item === 'object')
+      if (hasObjects) {
+        v.forEach((item, i) => {
+          if (item && typeof item === 'object') {
+            entries.push(...flattenObject(item, skipKeys, `${key}[${i}]`))
+          } else if (item !== null && item !== undefined) {
+            entries.push({ field: `${key}[${i}]`, value: String(item) })
+          }
+        })
+      } else {
+        const joined = v.filter((x) => x !== null && x !== undefined).join(', ')
+        if (joined) entries.push({ field: key, value: joined })
+      }
+    } else if (v !== null && v !== undefined && v !== '') {
+      entries.push({ field: key, value: String(v) })
+    }
+  }
+  return entries
+}
 
 function formatTimestamp(ts) {
   const d = new Date(ts)
@@ -140,10 +170,75 @@ function FilterDropdown({ label, value, options, onChange }) {
 
 export default function Alerts() {
   usePageTitle('Alerts')
-  const [data, setData] = useState(mockAlerts)
+  const [searchParams] = useSearchParams()
+  const [data, setData] = useState([])
+  const [pendingAlertId] = useState(() => searchParams.get('id'))
+
+  useEffect(() => {
+    api.get('/alerts?size=1000')
+      .then((resp) => {
+        const mapped = (resp.alerts || []).map((a, i) => ({
+          id: a._id || `alert-${i}`,
+          _id: a._id,
+          _index: a._index,
+          severity: a.event?.severity || a.rule?.severity || 'low',
+          timestamp: a['@timestamp'] || '',
+          ruleName: a.rule?.name || '—',
+          ruleDescription: a.rule?.description || '',
+          sourceIp: a.source?.ip || '',
+          destinationIp: a.destination?.ip || '',
+          user: a.user?.name || '',
+          mitreTactic: a.threat?.tactic?.name || '',
+          mitreTechniqueId: a.threat?.technique?.id || '',
+          status: a.event?.outcome || 'new',
+          assignee: a.assignee || null,
+          events: flattenObject(a, ['raw', '_raw']),
+          relatedEvents: [],
+          _raw: a,
+        }))
+        setData(mapped)
+      })
+      .catch(() => {})
+  }, [])
   const [sorting, setSorting] = useState([{ id: 'timestamp', desc: true }])
   const [rowSelection, setRowSelection] = useState({})
   const [selectedAlert, setSelectedAlert] = useState(null)
+
+  // Auto-select alert from URL ?id= parameter.
+  useEffect(() => {
+    if (!pendingAlertId || selectedAlert) return
+    if (data.length > 0) {
+      const match = data.find((a) => a.id === pendingAlertId || a._id === pendingAlertId)
+      if (match) {
+        setSelectedAlert(match)
+        return
+      }
+    }
+    // Not in current page — fetch directly.
+    api.get(`/alerts/${pendingAlertId}`).then((a) => {
+      if (a && a._id) {
+        setSelectedAlert({
+          id: a._id,
+          _id: a._id,
+          _index: a._index,
+          severity: a.event?.severity || a.rule?.severity || 'low',
+          timestamp: a['@timestamp'] || '',
+          ruleName: a.rule?.name || '—',
+          ruleDescription: a.rule?.description || '',
+          sourceIp: a.source?.ip || '',
+          destinationIp: a.destination?.ip || '',
+          user: a.user?.name || '',
+          mitreTactic: a.threat?.tactic?.name || '',
+          mitreTechniqueId: a.threat?.technique?.id || '',
+          status: a.event?.outcome || 'new',
+          assignee: a.assignee || null,
+          events: flattenObject(a, ['raw', '_raw']),
+          relatedEvents: [],
+          _raw: a,
+        })
+      }
+    }).catch(() => {})
+  }, [pendingAlertId, data, selectedAlert])
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('')
@@ -176,29 +271,58 @@ export default function Alerts() {
 
   const selectedCount = Object.keys(rowSelection).length
 
-  function handleAcknowledge(id) {
-    setData((prev) => prev.map((a) => a.id === id ? { ...a, status: 'acknowledged' } : a))
-    setSelectedAlert((prev) => prev && prev.id === id ? { ...prev, status: 'acknowledged' } : prev)
+  function updateAlertStatus(id, newStatus) {
+    const alert = data.find((a) => a.id === id)
+    if (alert && alert._id && alert._index) {
+      api.patch(`/alerts/${encodeURIComponent(alert._index)}/${encodeURIComponent(alert._id)}`, { status: newStatus }).catch(() => {})
+    }
+    setData((prev) => prev.map((a) => a.id === id ? { ...a, status: newStatus } : a))
+    setSelectedAlert((prev) => prev && prev.id === id ? { ...prev, status: newStatus } : prev)
   }
+
+  function handleAcknowledge(id) { updateAlertStatus(id, 'acknowledged') }
 
   function handleEscalate(id) {
-    setData((prev) => prev.map((a) => a.id === id ? { ...a, status: 'escalated' } : a))
-    setSelectedAlert((prev) => prev && prev.id === id ? { ...prev, status: 'escalated' } : prev)
+    const alert = data.find((a) => a.id === id)
+    if (!alert) return
+    updateAlertStatus(id, 'escalated')
+    // Create a case from this alert.
+    const caseBody = {
+      title: alert.ruleName || 'Escalated Alert',
+      severity: typeof alert.severity === 'number'
+        ? ({ 1: 'critical', 2: 'high', 3: 'medium', 4: 'low', 5: 'low' }[alert.severity] || 'medium')
+        : (alert.severity || 'medium'),
+      alert_ids: alert._id ? [alert._id] : [],
+    }
+    api.post('/cases', caseBody).catch((err) => {
+      console.error('Failed to create case:', err)
+    })
   }
 
-  function handleCloseAlert(id) {
-    setData((prev) => prev.map((a) => a.id === id ? { ...a, status: 'closed' } : a))
-    setSelectedAlert((prev) => prev && prev.id === id ? { ...prev, status: 'closed' } : prev)
-  }
+  function handleCloseAlert(id) { updateAlertStatus(id, 'closed') }
 
   function handleBulkAcknowledge() {
     const ids = new Set(Object.keys(rowSelection))
+    const targets = data.filter((a) => ids.has(a.id) && a._id && a._index)
+    if (targets.length > 0) {
+      api.post('/alerts/bulk-update', {
+        status: 'acknowledged',
+        alerts: targets.map((a) => ({ _id: a._id, _index: a._index })),
+      }).catch(() => {})
+    }
     setData((prev) => prev.map((a) => ids.has(a.id) && a.status === 'new' ? { ...a, status: 'acknowledged' } : a))
     setRowSelection({})
   }
 
   function handleBulkClose() {
     const ids = new Set(Object.keys(rowSelection))
+    const targets = data.filter((a) => ids.has(a.id) && a._id && a._index)
+    if (targets.length > 0) {
+      api.post('/alerts/bulk-update', {
+        status: 'closed',
+        alerts: targets.map((a) => ({ _id: a._id, _index: a._index })),
+      }).catch(() => {})
+    }
     setData((prev) => prev.map((a) => ids.has(a.id) && a.status !== 'closed' ? { ...a, status: 'closed' } : a))
     setRowSelection({})
   }

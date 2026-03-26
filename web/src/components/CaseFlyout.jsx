@@ -117,7 +117,12 @@ function AlertsTab({ caseData }) {
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700">
         {alertIds.map((id) => (
           <div key={id} className="flex items-center px-3 py-2">
-            <span className="text-sm font-mono text-slate-700 dark:text-slate-300">{id}</span>
+            <a
+              href={`/alerts?id=${id}`}
+              className="text-sm font-mono text-blue-500 hover:text-blue-400 hover:underline cursor-pointer"
+            >
+              {id}
+            </a>
           </div>
         ))}
       </div>

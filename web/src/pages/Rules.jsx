@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ShieldCheckIcon, ListBulletIcon, TableCellsIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import usePageTitle from '../hooks/usePageTitle'
 import RulesList from '../components/RulesList'
 import AttackHeatmap from '../components/AttackHeatmap'
-import { mockRules } from '../data/mockRules'
+import { api } from '../lib/api'
 
 const tabs = [
   { id: 'list', label: 'Detection Rules', icon: ListBulletIcon },
@@ -13,7 +13,13 @@ const tabs = [
 export default function Rules() {
   usePageTitle('Rules')
   const [activeTab, setActiveTab] = useState('list')
-  const [rules, setRules] = useState(mockRules)
+  const [rules, setRules] = useState([])
+
+  useEffect(() => {
+    api.get('/rules')
+      .then((resp) => setRules(resp.rules || []))
+      .catch(() => {})
+  }, [])
   const [severityFilter, setSeverityFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [enabledFilter, setEnabledFilter] = useState('')
@@ -30,7 +36,7 @@ export default function Rules() {
   const ruleStats = useMemo(() => ({
     total: rules.length,
     enabled: rules.filter((r) => r.enabled).length,
-    totalHits: rules.reduce((sum, r) => sum + r.hitCount, 0),
+    totalHits: rules.reduce((sum, r) => sum + (r.hitCount || 0), 0),
   }), [rules])
 
   function handleToggle(ruleId) {

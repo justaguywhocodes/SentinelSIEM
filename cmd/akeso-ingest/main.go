@@ -38,6 +38,8 @@ func main() {
 	// Initialize parser registry with all known parsers.
 	registry := normalize.NewRegistry()
 	registry.Register(parsers.Newakeso_edrParser())
+	registry.Register(parsers.NewAkesoAVParser())
+	registry.Register(parsers.NewAkesoDLPParser())
 	registry.Register(parsers.NewAkesoNDRParser())
 	registry.Register(parsers.NewWinEvtXMLParser())
 	registry.Register(parsers.NewWinEvtJSONParser())

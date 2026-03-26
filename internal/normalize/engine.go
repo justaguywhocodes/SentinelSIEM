@@ -9,8 +9,16 @@ import (
 )
 
 // sourceTypeEnvelope is used for lightweight extraction of source_type from raw JSON.
+// Also checks the "schema" field as a fallback for sources that use schema-based routing
+// (e.g., AkesoEDR sends "schema": "akesoedr/v1" instead of "source_type").
 type sourceTypeEnvelope struct {
 	SourceType string `json:"source_type"`
+	Schema     string `json:"schema"`
+}
+
+// schemaToSourceType maps known schema identifiers to parser source types.
+var schemaToSourceType = map[string]string{
+	"akesoedr/v1": "akeso_edr",
 }
 
 // Engine routes raw events to the correct parser based on source_type.
@@ -35,6 +43,13 @@ func (e *Engine) Normalize(raw json.RawMessage) (*common.ECSEvent, error) {
 	var envelope sourceTypeEnvelope
 	if err := json.Unmarshal(raw, &envelope); err != nil {
 		return nil, fmt.Errorf("normalize: extracting source_type: %w", err)
+	}
+
+	// Fall back to schema field if source_type is missing.
+	if envelope.SourceType == "" && envelope.Schema != "" {
+		if mapped, ok := schemaToSourceType[envelope.Schema]; ok {
+			envelope.SourceType = mapped
+		}
 	}
 
 	// Look up parser.

@@ -57,7 +57,7 @@ export default function RulesList({ rules, onToggle }) {
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-400">
               <span>{tacticRules.filter((r) => r.enabled).length} enabled</span>
-              <span>{tacticRules.reduce((sum, r) => sum + r.hitCount, 0).toLocaleString()} hits</span>
+              <span>{tacticRules.reduce((sum, r) => sum + (r.hitCount || 0), 0).toLocaleString()} hits</span>
             </div>
           </button>
 
@@ -111,14 +111,14 @@ export default function RulesList({ rules, onToggle }) {
                     </span>
 
                     {/* Source badge */}
-                    <span className={`hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${sourceBadgeClass[rule.source]}`}>
-                      {sourceLabel[rule.source]}
+                    <span className={`hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${sourceBadgeClass[rule.source] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                      {sourceLabel[rule.source] || rule.source || '—'}
                     </span>
 
                     {/* Hit count */}
                     <div className="w-16 text-right flex-shrink-0">
                       <span className="text-sm font-mono text-slate-600 dark:text-slate-300">
-                        {rule.hitCount.toLocaleString()}
+                        {(rule.hitCount || 0).toLocaleString()}
                       </span>
                     </div>
 

@@ -12,15 +12,18 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/derekxmartin/akeso-siem/internal/alert"
 	"github.com/derekxmartin/akeso-siem/internal/auth"
 	"github.com/derekxmartin/akeso-siem/internal/cases"
 	"github.com/derekxmartin/akeso-siem/internal/common"
 	"github.com/derekxmartin/akeso-siem/internal/config"
 	"github.com/derekxmartin/akeso-siem/internal/correlate"
+	"github.com/derekxmartin/akeso-siem/internal/dashboard"
 	"github.com/derekxmartin/akeso-siem/internal/lifecycle"
 	"github.com/derekxmartin/akeso-siem/internal/metrics"
 	"github.com/derekxmartin/akeso-siem/internal/normalize"
 	"github.com/derekxmartin/akeso-siem/internal/query"
+	"github.com/derekxmartin/akeso-siem/internal/rules"
 	"github.com/derekxmartin/akeso-siem/internal/search"
 	"github.com/derekxmartin/akeso-siem/internal/sources"
 	"github.com/derekxmartin/akeso-siem/internal/store"
@@ -180,6 +183,18 @@ func main() {
 		r.Post("/api/v1/auth/me/mfa/enroll", authHandler.HandleMFAEnroll)
 		r.Post("/api/v1/auth/me/mfa/verify", authHandler.HandleMFAVerifyEnrollment)
 		r.Delete("/api/v1/auth/me/mfa", authHandler.HandleMFADisable)
+
+		// Dashboard overview.
+		dashHandler := dashboard.NewHandler(esStore, cfg.Elasticsearch.IndexPrefix)
+		r.Get("/api/v1/dashboard/overview", dashHandler.HandleOverview)
+
+		// Alert listing and management.
+		alertHandler := alert.NewAPIHandler(esStore, cfg.Elasticsearch.IndexPrefix)
+		alertHandler.Routes(r)
+
+		// Rules listing.
+		rulesHandler := rules.NewHandler(cfg.Correlate.RulesDir, cfg.Correlate.LogsourceMapPath)
+		r.Get("/api/v1/rules", rulesHandler.HandleList)
 
 		// Source management routes.
 		sourceHandler.Routes(r)

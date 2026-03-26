@@ -18,7 +18,10 @@ const statusLabel = {
 }
 
 function formatTimestamp(ts) {
-  const diff = Date.now() - new Date(ts).getTime()
+  if (!ts) return '—'
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return '—'
+  const diff = Date.now() - d.getTime()
   if (diff < 60000) return 'just now'
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
   return `${Math.floor(diff / 3600000)}h ago`
@@ -55,15 +58,15 @@ function ExpandedRow({ source }) {
       </div>
       <div>
         <p className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">Events Today</p>
-        <p className="text-xs text-slate-700 dark:text-slate-300">{source.eventsToday?.toLocaleString()}</p>
+        <p className="text-xs text-slate-700 dark:text-slate-300">{(source.eventsToday || 0).toLocaleString()}</p>
       </div>
       <div>
         <p className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">Avg Latency</p>
-        <p className="text-xs text-slate-700 dark:text-slate-300">{source.latencyMs}ms</p>
+        <p className="text-xs text-slate-700 dark:text-slate-300">{source.latencyMs || 0}ms</p>
       </div>
       <div>
         <p className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">API Key</p>
-        <p className="text-xs text-slate-700 dark:text-slate-300 font-mono">{source.apiKeyPrefix}</p>
+        <p className="text-xs text-slate-700 dark:text-slate-300 font-mono">{source.apiKeyPrefix || '—'}</p>
       </div>
       <div>
         <p className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-medium mb-1">Expected Hosts</p>
@@ -134,14 +137,14 @@ export default function SourceHealthTable({ sources }) {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs font-mono text-slate-700 dark:text-slate-300">
-                    {src.eps.toLocaleString()}
+                    {(src.eps || 0).toLocaleString()}
                   </td>
                   <td className="px-3 py-2">
-                    <MiniSparkline data={src.epsSparkline} color={sparkColor} />
+                    <MiniSparkline data={src.epsSparkline || []} color={sparkColor} />
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`text-xs font-mono ${src.errorRate > 1 ? 'text-red-500' : src.errorRate > 0 ? 'text-slate-500 dark:text-slate-400' : 'text-green-500'}`}>
-                      {src.errorRate.toFixed(2)}%
+                    <span className={`text-xs font-mono ${(src.errorRate || 0) > 1 ? 'text-red-500' : (src.errorRate || 0) > 0 ? 'text-slate-500 dark:text-slate-400' : 'text-green-500'}`}>
+                      {(src.errorRate || 0).toFixed(2)}%
                     </span>
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">

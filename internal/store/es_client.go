@@ -272,6 +272,76 @@ func (s *Store) SearchRaw(ctx context.Context, index string, body map[string]any
 	return result, nil
 }
 
+// SearchRawWithMetaResult includes ES metadata (_id, _index) with each hit.
+type SearchRawWithMetaResult struct {
+	Total  int
+	Hits   []json.RawMessage // each hit is {"_id":..., "_index":..., ...source fields}
+	TookMs int
+}
+
+// SearchRawWithMeta is like SearchRaw but merges _id and _index into each hit document.
+func (s *Store) SearchRawWithMeta(ctx context.Context, index string, body map[string]any) (*SearchRawWithMetaResult, error) {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling search body: %w", err)
+	}
+
+	res, err := s.client.Search(
+		s.client.Search.WithContext(ctx),
+		s.client.Search.WithIndex(index),
+		s.client.Search.WithBody(bytes.NewReader(bodyBytes)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search request: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf("search error: %s", res.String())
+	}
+
+	rawBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading search response: %w", err)
+	}
+
+	var parsed struct {
+		Took int `json:"took"`
+		Hits struct {
+			Total struct {
+				Value int `json:"value"`
+			} `json:"total"`
+			Hits []struct {
+				ID     string          `json:"_id"`
+				Index  string          `json:"_index"`
+				Source json.RawMessage `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if err := json.Unmarshal(rawBody, &parsed); err != nil {
+		return nil, fmt.Errorf("decoding search response: %w", err)
+	}
+
+	result := &SearchRawWithMetaResult{
+		Total:  parsed.Hits.Total.Value,
+		TookMs: parsed.Took,
+	}
+	for _, hit := range parsed.Hits.Hits {
+		// Merge _id and _index into the source document.
+		var doc map[string]any
+		if err := json.Unmarshal(hit.Source, &doc); err != nil {
+			result.Hits = append(result.Hits, hit.Source)
+			continue
+		}
+		doc["_id"] = hit.ID
+		doc["_index"] = hit.Index
+		merged, _ := json.Marshal(doc)
+		result.Hits = append(result.Hits, merged)
+	}
+
+	return result, nil
+}
+
 // --- APIKeyBackend implementation ---
 // These methods implement common.APIKeyBackend so the Store can be used
 // as the backing store for API key management.

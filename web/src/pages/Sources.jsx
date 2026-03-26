@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ServerStackIcon, PlusIcon } from '@heroicons/react/24/outline'
 import usePageTitle from '../hooks/usePageTitle'
 import IngestionChart from '../components/IngestionChart'
 import SourceHealthTable from '../components/SourceHealthTable'
 import SourceWizard from '../components/SourceWizard'
 import ParserTester from '../components/ParserTester'
-import { sourceHealthSources, computeSourceKPIs, ingestionChartData } from '../data/mockSources'
+import { api } from '../lib/api'
 
 const statusDot = {
   active: 'bg-green-500',
@@ -17,7 +17,29 @@ export default function Sources() {
   usePageTitle('Sources')
   const [wizardOpen, setWizardOpen] = useState(false)
   const [testerOpen, setTesterOpen] = useState(false)
-  const kpis = useMemo(() => computeSourceKPIs(sourceHealthSources), [])
+  const [sources, setSources] = useState([])
+
+  useEffect(() => {
+    api.get('/sources')
+      .then((resp) => setSources(resp.sources || []))
+      .catch(() => {})
+  }, [])
+
+  const kpis = useMemo(() => {
+    const active = sources.filter(s => s.status === 'active').length
+    const degraded = sources.filter(s => s.status === 'degraded').length
+    const error = sources.filter(s => s.status === 'error' || s.status === 'decommissioned').length
+    const totalEPS = sources.reduce((sum, s) => sum + (s.eps || 0), 0)
+    const avgError = sources.filter(s => (s.eps || 0) > 0).reduce((sum, s) => sum + (s.errorRate || 0), 0) /
+      Math.max(1, sources.filter(s => (s.eps || 0) > 0).length)
+    return {
+      totalEPS: { label: 'Total EPS', value: totalEPS },
+      activeSources: { label: 'Active Sources', value: `${active}/${sources.length}`, gauge: { active, expected: sources.length } },
+      errorRate: { label: 'Avg Error Rate', value: `${avgError.toFixed(2)}%` },
+      degraded: { label: 'Degraded', value: degraded },
+      errors: { label: 'Errors', value: error },
+    }
+  }, [sources])
 
   return (
     <div className="space-y-4">
@@ -56,7 +78,7 @@ export default function Sources() {
           <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
             <div
               className={`h-full rounded-full ${kpis.activeSources.gauge.active === kpis.activeSources.gauge.expected ? 'bg-green-500' : 'bg-amber-500'}`}
-              style={{ width: `${(kpis.activeSources.gauge.active / kpis.activeSources.gauge.expected) * 100}%` }}
+              style={{ width: `${kpis.activeSources.gauge.expected > 0 ? (kpis.activeSources.gauge.active / kpis.activeSources.gauge.expected) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -81,10 +103,10 @@ export default function Sources() {
       </div>
 
       {/* Ingestion Rate Chart */}
-      <IngestionChart data={ingestionChartData} />
+      <IngestionChart data={[]} />
 
       {/* Source Health Table */}
-      <SourceHealthTable sources={sourceHealthSources} />
+      <SourceHealthTable sources={sources} />
 
       {/* Source Wizard Modal */}
       {wizardOpen && <SourceWizard onClose={() => setWizardOpen(false)} />}

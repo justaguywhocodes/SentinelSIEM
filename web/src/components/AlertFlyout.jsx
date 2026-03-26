@@ -63,7 +63,7 @@ function EvidenceTab({ alert }) {
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Event Fields</h4>
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700">
-        {alert.events.map((evt, i) => (
+        {(alert.events || []).map((evt, i) => (
           <div key={i} className="flex items-center px-3 py-2 text-sm">
             <span className="text-slate-500 dark:text-slate-400 font-mono text-xs w-48 shrink-0 truncate" title={evt.field}>
               {evt.field}
@@ -83,7 +83,7 @@ function TimelineTab({ alert }) {
     <div className="space-y-1">
       <h4 className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Related Events</h4>
       <div className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 space-y-4">
-        {alert.relatedEvents.map((evt, i) => (
+        {(alert.relatedEvents || []).map((evt, i) => (
           <div key={i} className="relative">
             <div className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-500 border-2 border-white dark:border-slate-900" />
             <div>

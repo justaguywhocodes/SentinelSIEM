@@ -9,7 +9,8 @@ import ResultsHistogram from '../components/ResultsHistogram'
 import ResultsTable from '../components/ResultsTable'
 import FieldStatsSidebar from '../components/FieldStatsSidebar'
 import ContextMenu from '../components/ContextMenu'
-import { generateMockResults, generateHistogramBuckets, computeFieldStats } from '../data/mockHuntResults'
+import { generateHistogramBuckets, computeFieldStats } from '../data/mockHuntResults'
+import { api } from '../lib/api'
 
 export default function Hunt() {
   usePageTitle('Hunt')
@@ -29,24 +30,18 @@ export default function Hunt() {
   const fieldStats = useMemo(() => computeFieldStats(results), [results])
 
   const handleSearch = useCallback(() => {
+    if (!query.trim()) return
     setIsSearching(true)
-    // Simulate API call delay
-    setTimeout(() => {
-      const count = pageSize + Math.floor(Math.random() * 100)
-      const mockResults = generateMockResults(count)
-
-      // Simple client-side "filtering" for demo
-      let filtered = mockResults
-      if (query.trim()) {
-        const lower = query.toLowerCase()
-        filtered = mockResults.filter(r =>
-          Object.values(r).some(v => String(v).toLowerCase().includes(lower))
-        )
-      }
-
-      setResults(filtered)
-      setIsSearching(false)
-    }, 400)
+    api.post('/query', { query: query.trim(), size: pageSize })
+      .then((resp) => {
+        const hits = (resp.hits || []).map((hit, i) => {
+          const doc = typeof hit === 'string' ? JSON.parse(hit) : hit
+          return { _id: doc._id || `evt-${i}`, _index: doc._index || '', ...doc }
+        })
+        setResults(hits)
+      })
+      .catch(() => setResults([]))
+      .finally(() => setIsSearching(false))
   }, [query, pageSize])
 
   // Auto-search when arriving with ?q= parameter.

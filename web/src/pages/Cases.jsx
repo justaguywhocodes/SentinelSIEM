@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { FolderOpenIcon, FunnelIcon } from '@heroicons/react/24/outline'
 import usePageTitle from '../hooks/usePageTitle'
 import {
@@ -10,7 +10,7 @@ import {
 import SeverityBadge, { getSeverityBorderClass } from '../components/SeverityBadge'
 import StatusBadge from '../components/StatusBadge'
 import CaseFlyout from '../components/CaseFlyout'
-import { mockCases } from '../data/mockCases'
+import { api } from '../lib/api'
 
 function formatTimestamp(ts) {
   const d = new Date(ts)
@@ -124,7 +124,13 @@ function FilterDropdown({ label, value, options, onChange }) {
 }
 
 export default function Cases() {
-  const [data, setData] = useState(mockCases)
+  const [data, setData] = useState([])
+
+  useEffect(() => {
+    api.get('/cases')
+      .then((resp) => setData(resp.cases || []))
+      .catch(() => {})
+  }, [])
   const [sorting, setSorting] = useState([{ id: 'updated_at', desc: true }])
   const [selectedCase, setSelectedCase] = useState(null)
 
@@ -171,6 +177,16 @@ export default function Cases() {
 
   function handleStatusChange(id, newStatus, resolution) {
     const now = new Date().toISOString()
+
+    // Persist to API.
+    const updateBody = { status: newStatus }
+    if (newStatus === 'closed' && resolution) {
+      updateBody.resolution = resolution
+    }
+    api.put(`/cases/${id}`, updateBody).catch((err) => {
+      console.error('Failed to update case:', err)
+    })
+
     setData((prev) =>
       prev.map((c) => {
         if (c.id !== id) return c
@@ -179,7 +195,7 @@ export default function Cases() {
           status: newStatus,
           updated_at: now,
           timeline: [
-            ...c.timeline,
+            ...(c.timeline || []),
             { timestamp: now, author: 'you', action_type: 'status_change', content: { from: c.status, to: newStatus } },
           ],
         }
@@ -227,16 +243,22 @@ export default function Cases() {
   function handleAddComment(id, text) {
     const now = new Date().toISOString()
     const entry = { timestamp: now, author: 'you', action_type: 'comment', content: { text } }
+
+    // Persist to API.
+    api.post(`/cases/${id}/comments`, { text }).catch((err) => {
+      console.error('Failed to add comment:', err)
+    })
+
     setData((prev) =>
       prev.map((c) =>
         c.id === id
-          ? { ...c, updated_at: now, timeline: [...c.timeline, entry] }
+          ? { ...c, updated_at: now, timeline: [...(c.timeline || []), entry] }
           : c
       )
     )
     setSelectedCase((prev) => {
       if (!prev || prev.id !== id) return prev
-      return { ...prev, updated_at: now, timeline: [...prev.timeline, entry] }
+      return { ...prev, updated_at: now, timeline: [...(prev.timeline || []), entry] }
     })
   }
 
