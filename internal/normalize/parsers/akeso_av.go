@@ -27,6 +27,7 @@ func (p *AkesoAVParser) SourceType() string {
 type avEnvelope struct {
 	Timestamp string          `json:"timestamp"`
 	Hostname  string          `json:"hostname"`
+	AgentID   string          `json:"agent_id"`
 	EventType string          `json:"event_type"`
 	User      *avUser         `json:"user,omitempty"`
 	Payload   json.RawMessage `json:"payload"`
@@ -40,6 +41,7 @@ type avUser struct {
 // --- Payload structs per event type ---
 
 type avScanResultPayload struct {
+	// Flat format (server-side events).
 	FilePath      string `json:"file_path"`
 	FileSize      int64  `json:"file_size,omitempty"`
 	HashMD5       string `json:"hash_md5,omitempty"`
@@ -48,6 +50,39 @@ type avScanResultPayload struct {
 	Verdict       string `json:"verdict"`        // clean, malicious, suspicious
 	SignatureName string `json:"signature_name,omitempty"`
 	Engine        string `json:"engine,omitempty"`
+
+	// Nested format (CLI/agent JSONL events).
+	Scan      *avNestedScan      `json:"scan,omitempty"`
+	Signature *avNestedSignature `json:"signature,omitempty"`
+	File      *avNestedFile      `json:"file,omitempty"`
+}
+
+type avNestedScan struct {
+	Result         string  `json:"result"`
+	ScannerID      string  `json:"scanner_id,omitempty"`
+	ScanType       string  `json:"scan_type,omitempty"`
+	HeuristicScore float64 `json:"heuristic_score,omitempty"`
+	DurationMs     int     `json:"duration_ms,omitempty"`
+}
+
+type avNestedSignature struct {
+	Name      string `json:"name,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Engine    string `json:"engine,omitempty"`
+	DBVersion string `json:"db_version,omitempty"`
+}
+
+type avNestedFile struct {
+	Path        string        `json:"path,omitempty"`
+	Name        string        `json:"name,omitempty"`
+	Type        string        `json:"type,omitempty"`
+	Size        int64         `json:"size,omitempty"`
+	Hash        *avNestedHash `json:"hash,omitempty"`
+	InWhitelist bool          `json:"in_whitelist,omitempty"`
+}
+
+type avNestedHash struct {
+	SHA256 string `json:"sha256,omitempty"`
 }
 
 type avQuarantinePayload struct {
@@ -97,6 +132,12 @@ func (p *AkesoAVParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
 		ts = time.Now().UTC()
 	}
 
+	// Resolve hostname: prefer hostname field, fall back to agent_id.
+	hostname := env.Hostname
+	if hostname == "" {
+		hostname = env.AgentID
+	}
+
 	// Build base event with common fields.
 	event := &common.ECSEvent{
 		Timestamp: ts,
@@ -104,7 +145,7 @@ func (p *AkesoAVParser) Parse(raw json.RawMessage) (*common.ECSEvent, error) {
 			Kind: "event",
 		},
 		Host: &common.HostFields{
-			Name: env.Hostname,
+			Name: hostname,
 		},
 	}
 
@@ -157,8 +198,52 @@ func (p *AkesoAVParser) mapScanResult(event *common.ECSEvent, payload json.RawMe
 	event.Event.Type = []string{"info"}
 	event.Event.Action = "scan_result"
 
+	// Resolve verdict: flat format uses "verdict", nested uses "scan.result".
+	verdict := pl.Verdict
+	if verdict == "" && pl.Scan != nil {
+		verdict = pl.Scan.Result
+	}
+
+	// Resolve signature name: flat uses "signature_name", nested uses "signature.name".
+	sigName := pl.SignatureName
+	if sigName == "" && pl.Signature != nil {
+		sigName = pl.Signature.Name
+	}
+
+	// Resolve engine: flat uses "engine", nested uses "signature.engine" or "scan.scanner_id".
+	engine := pl.Engine
+	if engine == "" && pl.Signature != nil {
+		engine = pl.Signature.Engine
+	}
+	if engine == "" && pl.Scan != nil {
+		engine = pl.Scan.ScannerID
+	}
+
+	// Resolve file fields: flat uses top-level, nested uses "file.*".
+	filePath := pl.FilePath
+	fileName := ""
+	fileSize := pl.FileSize
+	hashSHA256 := pl.HashSHA256
+	if pl.File != nil {
+		if filePath == "" {
+			filePath = pl.File.Path
+		}
+		if pl.File.Name != "" {
+			fileName = pl.File.Name
+		}
+		if fileSize == 0 {
+			fileSize = pl.File.Size
+		}
+		if hashSHA256 == "" && pl.File.Hash != nil {
+			hashSHA256 = pl.File.Hash.SHA256
+		}
+	}
+	if fileName == "" {
+		fileName = fileNameFromPath(filePath)
+	}
+
 	// Set outcome based on verdict.
-	switch pl.Verdict {
+	switch verdict {
 	case "clean":
 		event.Event.Outcome = "success"
 	case "malicious", "suspicious":
@@ -167,28 +252,28 @@ func (p *AkesoAVParser) mapScanResult(event *common.ECSEvent, payload json.RawMe
 
 	// File fields.
 	event.File = &common.FileFields{
-		Path: pl.FilePath,
-		Name: fileNameFromPath(pl.FilePath),
-		Size: pl.FileSize,
+		Path: filePath,
+		Name: fileName,
+		Size: fileSize,
 	}
-	if pl.HashMD5 != "" || pl.HashSHA1 != "" || pl.HashSHA256 != "" {
+	if pl.HashMD5 != "" || pl.HashSHA1 != "" || hashSHA256 != "" {
 		event.File.Hash = &common.HashFields{
 			MD5:    pl.HashMD5,
 			SHA1:   pl.HashSHA1,
-			SHA256: pl.HashSHA256,
+			SHA256: hashSHA256,
 		}
 	}
 
 	// AV fields.
 	event.AV = &common.AVFields{
 		Scan: &common.AVScan{
-			Result: pl.Verdict,
-			Engine: pl.Engine,
+			Result: verdict,
+			Engine: engine,
 		},
 	}
-	if pl.SignatureName != "" {
+	if sigName != "" {
 		event.AV.Signature = &common.AVSignature{
-			Name: pl.SignatureName,
+			Name: sigName,
 		}
 	}
 

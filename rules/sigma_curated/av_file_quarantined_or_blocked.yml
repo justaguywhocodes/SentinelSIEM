@@ -1,0 +1,25 @@
+title: File Quarantined or Blocked by Antivirus
+id: a1b2c3d4-2026-4a1b-9c16-000000000031
+status: stable
+description: |
+  Alerts when AkesoAV quarantines or blocks a file in real-time,
+  indicating active threat prevention on the endpoint.
+references:
+  - https://attack.mitre.org/techniques/T1204/002/
+author: AkesoSIEM
+date: 2026/03/27
+tags:
+  - attack.execution
+  - attack.t1204.002
+level: high
+logsource:
+  category: malware
+  product: akeso_av
+detection:
+  selection:
+    event.action:
+      - quarantine
+      - realtime_block
+  condition: selection
+falsepositives:
+  - Legitimate files quarantined due to false positive signature match
