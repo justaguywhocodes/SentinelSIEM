@@ -36,9 +36,10 @@ detection:
     ndr.detection.category: command_and_control
   condition: selection
 
-# Rule 2: EDR process creation on same host
+# Rule 2: EDR suspicious process creation on same host
+# (Scoped to common LOLBins — not all process starts)
 ---
-title: EDR Process Creation on Beacon Host
+title: EDR Suspicious Process on Beacon Host
 id: c1a2b3c4-d5e6-4f78-9a0b-200000000002
 status: experimental
 logsource:
@@ -47,6 +48,17 @@ detection:
   selection:
     event.category: process
     event.type: start
+    process.name:
+      - powershell.exe
+      - cmd.exe
+      - wscript.exe
+      - cscript.exe
+      - mshta.exe
+      - rundll32.exe
+      - regsvr32.exe
+      - certutil.exe
+      - bitsadmin.exe
+      - msiexec.exe
   condition: selection
 
 # Correlation: same host within 5 minutes

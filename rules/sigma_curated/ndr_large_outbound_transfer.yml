@@ -16,7 +16,13 @@ logsource:
   product: akeso_ndr
 detection:
   selection:
-    ndr.session.bytes_sent|gt: 500000
-  condition: selection
+    ndr.session.bytes_sent|gt: 50000000
+  filter_known_services:
+    destination.ip|cidr:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+  condition: selection and not filter_known_services
 falsepositives:
   - Legitimate large file uploads or cloud backups
+  - Software updates and OS patches
